@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from tensorflow import keras
+from dataIO import*
 
 ## Seeding
 seed = 2019
@@ -17,38 +18,13 @@ np.random.seed = seed
 tf.seed = seed
 
 class DataGen(keras.utils.Sequence):
-    def __init__(self, ids, path, batch_size=8, image_size=128):
+    def __init__(self, ids, seg_data, somae_data, batch_size=8, image_size=128):
         self.ids = ids
-        self.path = path
         self.batch_size = batch_size
         self.image_size = image_size
+        self.seg_data = seg_data
+        self.somae_data = somae_data
         self.on_epoch_end()
-
-    def __load__(self, id_name):
-        ## Path
-        image_path = os.path.join(self.path, id_name, "images", id_name) + ".png"
-        mask_path = os.path.join(self.path, id_name, "masks/")
-        all_masks = os.listdir(mask_path)
-
-        ## Reading Image
-        image = cv2.imread(image_path, 1)
-        image = cv2.resize(image, (self.image_size, self.image_size))
-
-        mask = np.zeros((self.image_size, self.image_size, 1))
-
-        ## Reading Masks
-        for name in all_masks:
-            _mask_path = mask_path + name
-            _mask_image = cv2.imread(_mask_path, -1)
-            _mask_image = cv2.resize(_mask_image, (self.image_size, self.image_size)) #128x128
-            _mask_image = np.expand_dims(_mask_image, axis=-1)
-            mask = np.maximum(mask, _mask_image)
-
-        ## Normalizaing
-        image = image/255.0
-        mask = mask/255.0
-
-        return image, mask
 
     def __getitem__(self, index):
         if(index+1)*self.batch_size > len(self.ids):
@@ -60,12 +36,24 @@ class DataGen(keras.utils.Sequence):
         mask  = []
 
         for id_name in files_batch:
-            _img, _mask = self.__load__(id_name)
+
+            _img_2d = self.seg_data[id_name,:,:]
+            _img_2d = np.expand_dims(_img_2d,axis=2)
+            _img = np.concatenate((_img_2d,_img_2d,_img_2d),axis=2)
+            # print(min(_img))
+            # print(max(_img))
+
+            _mask = self.somae_data[id_name,:,:]
+            _mask = np.expand_dims(_mask,axis=2)
+
             image.append(_img)
             mask.append(_mask)
 
         image = np.array(image)
         mask  = np.array(mask)
+
+        image = image/1.0
+        mask = mask/1.0
 
         return image, mask
 
@@ -81,26 +69,44 @@ epochs = 5
 batch_size = 8
 
 ## Training Ids
-train_ids = next(os.walk(train_path))[1]
+seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch-44-dsp_8.h5"
+somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/yl_cb_160nm_ffn_v2.h5"
+seg_data = ReadH5File(seg_filepath, [1])
+somae_data = ReadH5File(somae_filepath, [1])
+
+# downsample by 4, take 128x128 and binarize
+seg_data = seg_data[:,::4,::4]
+somae_data = somae_data[:,::4,::4]
+seg_data = seg_data[:,:128,:128]
+somae_data = somae_data[:,:128,:128]
+seg_data[seg_data>0]=1
+somae_data[somae_data>0]=1
+# find maximum z coordinate
+z_max = min(seg_data.shape[0],somae_data.shape[0])
+train_ids = np.arange(0,z_max)
 
 ## Validation Data Size
-val_data_size = 10
+val_data_size = 32
 
 valid_ids = train_ids[:val_data_size]
 train_ids = train_ids[val_data_size:]
 
-gen = DataGen(train_ids, train_path, batch_size=batch_size, image_size=image_size)
-x, y = gen.__getitem__(0)
-print(x.shape, y.shape)
+print("train IDs: " + str(len(train_ids)))
 
-r = random.randint(0, len(x)-1)
+gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
 
-# fig = plt.figure()
-# fig.subplots_adjust(hspace=0.4, wspace=0.4)
-# ax = fig.add_subplot(1, 2, 1)
-# ax.imshow(x[r])
-# ax = fig.add_subplot(1, 2, 2)
-# ax.imshow(np.reshape(y[r], (image_size, image_size)), cmap="gray")
+# while True:
+#     fig = plt.figure()
+#     fig.subplots_adjust(hspace=0.4, wspace=0.4)
+#     k = random.randint(0, int((len(train_ids)-1)/batch_size))
+#     x, y = gen.__getitem__(k)
+#     r = random.randint(0, len(x)-1)
+#     ax = fig.add_subplot(1, 2, 1)
+#     ax.imshow(x[r])
+#     ax = fig.add_subplot(1, 2, 2)
+#     ax.imshow(np.reshape(y[r], (image_size, image_size)), cmap="gray")
+#     plt.show()
+
 
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
@@ -145,32 +151,42 @@ model = UNet()
 model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
 model.summary()
 
-train_gen = DataGen(train_ids, train_path, image_size=image_size, batch_size=batch_size)
-valid_gen = DataGen(valid_ids, train_path, image_size=image_size, batch_size=batch_size)
+train_gen = DataGen(train_ids, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
+valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
 
 train_steps = len(train_ids)//batch_size
 valid_steps = len(valid_ids)//batch_size
 
-# model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-#                     epochs=epochs)
+model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+                    epochs=epochs)
 
 ## Save the Weights
-# model.save_weights("UNetW.h5")
-model.load_weights("UNetW.h5")
+model.save_weights("UNetW.h5")
+# model.load_weights("UNetW.h5")
 
 ## Dataset for prediction
-x, y = valid_gen.__getitem__(1)
-result = model.predict(x)
 
-result = result > 0.5
+def showResult(image_size):
+    while True:
+        print(int((len(valid_ids)-1)/batch_size))
+        k = random.randint(0, int((len(valid_ids)-1)/batch_size))
+        print(k)
+        x, y = valid_gen.__getitem__(k)
+        result = model.predict(x)
+        result = result > 0.5
+        r = random.randint(0, len(x)-1)
+        print(r)
 
-def showResult(result, image_id, image_size):
-    fig = plt.figure()
-    fig.subplots_adjust(hspace=0.4, wspace=0.4)
 
-    ax = fig.add_subplot(1, 2, 1)
-    ax.imshow(np.reshape(y[image_id]*255, (image_size, image_size)), cmap="gray")
+        fig = plt.figure()
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
 
-    ax = fig.add_subplot(1, 2, 2)
-    ax.imshow(np.reshape(result[image_id]*255, (image_size, image_size)), cmap="gray")
-    plt.show()
+        ax = fig.add_subplot(1, 3, 1)
+        ax.imshow(x[r])
+
+        ax = fig.add_subplot(1, 3, 2)
+        ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
+
+        ax = fig.add_subplot(1, 3, 3)
+        ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
+        plt.show()

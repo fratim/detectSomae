@@ -9,7 +9,7 @@ folder_path = "/home/frtim/wiring/raw_data/segmentations/Zebrafinch/"
 output_folder = "/home/frtim/Documents/Code/SomaeDetection/"
 
 size_x = int(5632/8)
-size_y = int(6632/8)
+size_y = int(5632/8)
 size_z = int(6144/8)
 slice_z = int(128/8)
 
@@ -27,6 +27,6 @@ for bz in range(0,45):
   del block
   del block_dsp
 
-WriteH5File(data_out,output_folder+"Zebrafinch-somae-44-dsp8.h5","main")
+WriteH5File(data_out,output_folder+"Zebrafinch-44-dsp_8.h5","main")
 
 del data_out
