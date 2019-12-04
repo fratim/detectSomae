@@ -65,12 +65,12 @@ class DataGen(keras.utils.Sequence):
 
 image_size = 352
 train_path = "/home/frtim/Desktop/data/stage1_train"
-epochs = 2
+epochs = 5
 batch_size = 8
 
 ## Training Ids
-seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch-44-dsp_8.h5"
-somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/yl_cb_160nm_ffn_v2.h5"
+seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
+somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
 seg_data = ReadH5File(seg_filepath, [1])
 somae_raw = ReadH5File(somae_filepath, [1])
 
@@ -89,6 +89,9 @@ somae_data[somae_data>0]=1
 
 seg_data = seg_data[:,::2,::2]
 somae_data = somae_data[:,::2,::2]
+
+seg_data = seg_data[:,:352,:352]
+somae_data = somae_data[:,:352,:352]
 
 # find maximum z coordinate
 train_ids = np.arange(0,z_max)
@@ -112,7 +115,7 @@ gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size
 #     x, y = gen.__getitem__(k)
 #     r = random.randint(0, len(x)-1)
 #     ax = fig.add_subplot(1, 2, 1)
-#     ax.imshow(x[r])
+#     ax.imshow(np.reshape(x[r], (image_size, image_size)), cmap="gray")
 #     ax = fig.add_subplot(1, 2, 2)
 #     ax.imshow(np.reshape(y[r], (image_size, image_size)), cmap="gray")
 #     plt.show()
@@ -167,32 +170,33 @@ valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batc
 train_steps = len(train_ids)//batch_size
 valid_steps = len(valid_ids)//batch_size
 
-# model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-#                     epochs=epochs)
+model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+                    epochs=epochs)
 
 ## Save the Weights
-# model.save_weights("UNetW.h5")
-model.load_weights("UNetW.h5")
+model.save_weights("UNetW_Mouse.h5")
+# model.load_weights("UNetW_Mouse.h5")
 
 ## Dataset for prediction
 
-def showResult(image_size=352):
-    while True:
-        k = random.randint(0, int((len(valid_ids)-1)/batch_size))
-        x, y = valid_gen.__getitem__(k)
-        result = model.predict(x)
-        result = result > 0.5
-        r = random.randint(0, len(x)-1)
+print ("Batch, Image")
+while True:
+    k = random.randint(0, int((len(valid_ids)-1)/batch_size))
+    x, y = valid_gen.__getitem__(k)
+    result = model.predict(x)
+    result = result > 0.5
+    r = random.randint(0, len(x)-1)
+    print(str(k) +", " + str(r))
 
-        fig = plt.figure(figsize=(20, 12))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+    fig = plt.figure(figsize=(20, 12))
+    fig.subplots_adjust(hspace=0.4, wspace=0.4)
 
-        ax = fig.add_subplot(1, 3, 1)
-        ax.imshow(np.reshape(x[r]*255, (image_size, image_size)), cmap="gray")
+    ax = fig.add_subplot(1, 3, 1)
+    ax.imshow(np.reshape(x[r]*255, (image_size, image_size)), cmap="gray")
 
-        ax = fig.add_subplot(1, 3, 2)
-        ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
+    ax = fig.add_subplot(1, 3, 2)
+    ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
 
-        ax = fig.add_subplot(1, 3, 3)
-        ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
-        plt.show()
+    ax = fig.add_subplot(1, 3, 3)
+    ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
+    plt.show()
