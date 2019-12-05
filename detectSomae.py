@@ -27,10 +27,15 @@ class DataGen(keras.utils.Sequence):
         self.on_epoch_end()
 
     def __getitem__(self, index):
-        if(index+1)*self.batch_size > len(self.ids):
-            self.batch_size = len(self.ids) - index*self.batch_size
 
-        files_batch = self.ids[index*self.batch_size : (index+1)*self.batch_size]
+        if(index+1)*self.batch_size > len(self.ids):
+            batch_size_dyn = len(self.ids) - index*self.batch_size
+        else:
+            batch_size_dyn = self.batch_size
+
+        print(batch_size_dyn)
+        
+        files_batch = self.ids[index*batch_size_dyn : (index+1)*batch_size_dyn]
 
         image = []
         mask  = []
@@ -42,8 +47,14 @@ class DataGen(keras.utils.Sequence):
             _mask = self.somae_data[id_name,:,:]
             _mask = np.expand_dims(_mask,axis=2)
 
+            # data augmentation: flip 50% of the time
+            if (np.random.uniform()>0.5):
+                _img = np.swapaxes(_img,0,1)
+                _mask = np.swapaxes(_mask,0,1)
+
             image.append(_img)
             mask.append(_mask)
+
 
         image = np.array(image)
         mask  = np.array(mask)
@@ -61,7 +72,7 @@ class DataGen(keras.utils.Sequence):
 
 image_size = 352
 train_path = "/home/frtim/Desktop/data/stage1_train"
-epochs = 8
+epochs = 2
 batch_size = 8
 
 ## Training Ids
@@ -102,21 +113,16 @@ valid_ids = valid_ids[3:-3]
 gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
 
 
-try:
-    while True:
-        fig = plt.figure(figsize=(20, 12))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
-        k = random.randint(0, int((len(train_ids)-1)/batch_size))
-        x, y = gen.__getitem__(k)
-        r = random.randint(0, len(x)-1)
-        ax = fig.add_subplot(1, 2, 1)
-        ax.imshow(np.reshape(x[r,:,:,3], (image_size, image_size)), cmap="gray")
-        ax = fig.add_subplot(1, 2, 2)
-        ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
-        plt.show()
-
-except KeyboardInterrupt:
-    pass
+# while True:
+#         fig = plt.figure(figsize=(20, 12))
+#         fig.subplots_adjust(hspace=0.4, wspace=0.4)
+#         k = random.randint(0, int((len(train_ids)-1)/batch_size))
+#         x, y = gen.__getitem__(k)
+#         ax = fig.add_subplot(1, 2, 1)
+#         ax.imshow(np.reshape(x[r,:,:,3], (image_size, image_size)), cmap="gray")
+#         ax = fig.add_subplot(1, 2, 2)
+#         ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
+#         plt.show()
 
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
@@ -167,12 +173,12 @@ valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batc
 train_steps = len(train_ids)//batch_size
 valid_steps = len(valid_ids)//batch_size
 
-# model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-#                     epochs=epochs)
-#
-# # Save the Weights
-# model.save_weights("UNetW_Mouse.h5")
-model.load_weights("UNetW_Mouse.h5")
+model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+                    epochs=epochs)
+
+# Save the Weights
+model.save_weights("UNetW_Mouse.h5")
+# model.load_weights("UNetW_Mouse.h5")
 
 ## Dataset for prediction
 
@@ -180,6 +186,7 @@ print ("Batch, Image")
 while True:
     k = random.randint(0, int((len(valid_ids)-1)/batch_size))
     x, y = valid_gen.__getitem__(k)
+    print(x.shape)
     result = model.predict(x)
     result = result > 0.5
     r = random.randint(0, len(x)-1)
