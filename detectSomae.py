@@ -18,7 +18,7 @@ np.random.seed = seed
 tf.seed = seed
 
 class DataGen(keras.utils.Sequence):
-    def __init__(self, ids, depth, seg_data, somae_data, batch_size=8, image_size=128):
+    def __init__(self, ids, depth, seg_data, somae_data, batch_size, image_size):
         self.ids = ids
         self.batch_size = batch_size
         self.image_size = image_size
@@ -62,6 +62,40 @@ class DataGen(keras.utils.Sequence):
         mask = mask/1.0
 
         return image, mask
+
+    def on_epoch_end(self):
+        pass
+
+    def __len__(self):
+        return int(np.ceil(len(self.ids)/float(self.batch_size)))
+
+class PredictDataGen(keras.utils.Sequence):
+    def __init__(self, ids, depth, seg_data, batch_size, image_size):
+        self.ids = ids
+        self.batch_size = batch_size
+        self.image_size = image_size
+        self.seg_data = seg_data
+        self.depth = depth
+        self.on_epoch_end()
+
+    def __getitem__(self, index):
+
+        if(index+1)*self.batch_size > len(self.ids):
+            batch_size_dyn = len(self.ids) - index*self.batch_size
+        else:
+            batch_size_dyn = self.batch_size
+
+        files_batch = self.ids[index*batch_size_dyn : (index+1)*batch_size_dyn]
+
+        image = []
+        for id_name in files_batch:
+            _img = self.seg_data[id_name-self.depth:id_name+self.depth+1,:,:]
+            _img = np.moveaxis(_img, 0, -1)
+            image.append(_img)
+
+        image = np.array(image)
+        image = image/1.0
+        return image
 
     def on_epoch_end(self):
         pass
@@ -179,7 +213,7 @@ def TrainOnMouse():
 
     ## Dataset for prediction
     print ("Batch, Image")
-    while True:
+    for _ in range(12):
         k = random.randint(0, int((len(valid_ids)-1)/batch_size))
         x, y = valid_gen.__getitem__(k)
         print(x.shape)
@@ -201,8 +235,77 @@ def TrainOnMouse():
         ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
         plt.show()
 
+def predictZebrafinch():
+
+    image_size = 704
+    # epochs = 2
+    batch_size = 8
+    depth = 5
+
+    #Mouse
+    seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
+    # somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
+
+    seg_data = ReadH5File(seg_filepath, [1])
+    # somae_raw = ReadH5File(somae_filepath, [1])
+
+    z_max = seg_data.shape[0]
+
+    # somae_data = np.zeros((z_max,seg_data.shape[1],seg_data.shape[2]),dtype=np.uint64)
+    # somae_data[:,:somae_raw.shape[1],:somae_raw.shape[2]]=somae_raw[:z_max,:,:]
+    # seg_data = seg_data[:,:,:z_max]
+
+    seg_data[seg_data>0]=1
+    # somae_data[somae_data>0]=1
+
+    if seg_data.shape[1]!=image_size or seg_data.shape[2]!=image_size:
+        raise ValueError("Image Size not correct")
+    # seg_data = seg_data[:,:image_size,:image_size]
+    # somae_data = somae_data[:,:image_size,:image_size]
+
+    # find maximum z coordinate
+    all_ids = np.arange(0,z_max)## Validation Data Size
+    val_data_size = 64
+
+    valid_ids = all_ids[:val_data_size]
+    train_ids = all_ids[val_data_size:]
+    train_ids = train_ids[depth:-depth]
+    valid_ids = valid_ids[depth:-depth]
+
+    model = UNet(image_size, depth)
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
+    model.summary()
+
+    predict_gen = PredictDataGen(valid_ids, depth, seg_data, image_size=image_size, batch_size=batch_size)
+
+    predict_steps = len(valid_ids)//batch_size
+
+    # Save the Weights
+    model.load_weights("UNetW_Mouse.h5")
+
+    ## Dataset for prediction
+    print ("Batch, Image")
+    for _ in range(12):
+        k = random.randint(0, int((len(valid_ids)-1)/batch_size))
+        x = predict_gen.__getitem__(k)
+        result = model.predict(x)
+        result = result > 0.5
+        r = random.randint(0, len(x)-1)
+        print(str(k) +", " + str(r))
+
+        fig = plt.figure(figsize=(20, 12))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+
+        ax = fig.add_subplot(1, 2, 1)
+        ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+
+        ax = fig.add_subplot(1, 2, 2)
+        ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
+        plt.show()
+
 def main():
-    TrainOnMouse()
+    # TrainOnMouse()
+    predictZebrafinch()
 
 if True == 1:
     main()
