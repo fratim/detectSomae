@@ -74,8 +74,8 @@ epochs = 2
 batch_size = 8
 
 ## Training Ids
-seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
-somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
+seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
+somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/yl_cb_160nm_ffn_v2.h5"
 seg_data = ReadH5File(seg_filepath, [1])
 somae_raw = ReadH5File(somae_filepath, [1])
 
@@ -172,12 +172,12 @@ valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batc
 train_steps = len(train_ids)//batch_size
 valid_steps = len(valid_ids)//batch_size
 
-model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-                    epochs=epochs)
+# model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+#                     epochs=epochs)
 
 # Save the Weights
-model.save_weights("UNetW_Mouse.h5")
-# model.load_weights("UNetW_Mouse.h5")
+# model.save_weights("UNetW_Mouse.h5")
+model.load_weights("UNetW_Mouse.h5")
 
 ## Dataset for prediction
 
