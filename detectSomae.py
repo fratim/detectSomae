@@ -138,8 +138,8 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 def UNet():
-    # f = [16, 32, 64, 128, 256, 512, 1024]
-    f = [16, 32, 64, 64,  128, 128, 256]
+    f = [16, 32, 64, 128, 256, 512, 1024]
+    # f = [16, 32, 64, 64,  128, 128, 256]
     inputs = keras.layers.Input((image_size, image_size, depth*2+1))
 
     p0 = inputs
@@ -181,7 +181,6 @@ model.save_weights("UNetW_Mouse.h5")
 # model.load_weights("UNetW_Mouse.h5")
 
 ## Dataset for prediction
-
 print ("Batch, Image")
 while True:
     k = random.randint(0, int((len(valid_ids)-1)/batch_size))
