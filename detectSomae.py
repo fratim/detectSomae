@@ -37,12 +37,8 @@ class DataGen(keras.utils.Sequence):
 
         for id_name in files_batch:
 
-            _img_2d = self.seg_data[id_name,:,:]
-            _img = np.expand_dims(_img_2d,axis=2)
-            # _img = np.concatenate((_img_2d,_img_2d,_img_2d),axis=2)
-            # print(min(_img))
-            # print(max(_img))
-
+            _img = self.seg_data[id_name-3:id_name+4,:,:]
+            _img = np.moveaxis(_img, 0, -1)
             _mask = self.somae_data[id_name,:,:]
             _mask = np.expand_dims(_mask,axis=2)
 
@@ -65,7 +61,7 @@ class DataGen(keras.utils.Sequence):
 
 image_size = 352
 train_path = "/home/frtim/Desktop/data/stage1_train"
-epochs = 5
+epochs = 8
 batch_size = 8
 
 ## Training Ids
@@ -94,32 +90,33 @@ seg_data = seg_data[:,:352,:352]
 somae_data = somae_data[:,:352,:352]
 
 # find maximum z coordinate
-train_ids = np.arange(0,z_max)
-print("total IDs: " + str(len(train_ids)))
-
-## Validation Data Size
+all_ids = np.arange(0,z_max)## Validation Data Size
 val_data_size = 64
 
-valid_ids = train_ids[:val_data_size]
-train_ids = train_ids[val_data_size:]
+valid_ids = all_ids[:val_data_size]
+train_ids = all_ids[val_data_size:]
+train_ids = train_ids[3:-3]
+valid_ids = valid_ids[3:-3]
 
-print("train IDs: " + str(len(train_ids)))
-print("valid IDs: " + str(len(valid_ids)))
 
 gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
 
-# while True:
-#     fig = plt.figure(figsize=(20, 12))
-#     fig.subplots_adjust(hspace=0.4, wspace=0.4)
-#     k = random.randint(0, int((len(train_ids)-1)/batch_size))
-#     x, y = gen.__getitem__(k)
-#     r = random.randint(0, len(x)-1)
-#     ax = fig.add_subplot(1, 2, 1)
-#     ax.imshow(np.reshape(x[r], (image_size, image_size)), cmap="gray")
-#     ax = fig.add_subplot(1, 2, 2)
-#     ax.imshow(np.reshape(y[r], (image_size, image_size)), cmap="gray")
-#     plt.show()
 
+try:
+    while True:
+        fig = plt.figure(figsize=(20, 12))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        k = random.randint(0, int((len(train_ids)-1)/batch_size))
+        x, y = gen.__getitem__(k)
+        r = random.randint(0, len(x)-1)
+        ax = fig.add_subplot(1, 2, 1)
+        ax.imshow(np.reshape(x[r,:,:,3], (image_size, image_size)), cmap="gray")
+        ax = fig.add_subplot(1, 2, 2)
+        ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
+        plt.show()
+
+except KeyboardInterrupt:
+    pass
 
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
@@ -141,7 +138,7 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
 
 def UNet():
     f = [16, 32, 64, 128, 256]
-    inputs = keras.layers.Input((image_size, image_size, 1))
+    inputs = keras.layers.Input((image_size, image_size, 7))
 
     p0 = inputs
     c1, p1 = down_block(p0, f[0]) #704 -> 352
@@ -170,12 +167,12 @@ valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batc
 train_steps = len(train_ids)//batch_size
 valid_steps = len(valid_ids)//batch_size
 
-model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-                    epochs=epochs)
-
-## Save the Weights
-model.save_weights("UNetW_Mouse.h5")
-# model.load_weights("UNetW_Mouse.h5")
+# model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+#                     epochs=epochs)
+#
+# # Save the Weights
+# model.save_weights("UNetW_Mouse.h5")
+model.load_weights("UNetW_Mouse.h5")
 
 ## Dataset for prediction
 
@@ -192,7 +189,7 @@ while True:
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
 
     ax = fig.add_subplot(1, 3, 1)
-    ax.imshow(np.reshape(x[r]*255, (image_size, image_size)), cmap="gray")
+    ax.imshow(np.reshape(x[r,:,:,3], (image_size, image_size)), cmap="gray")
 
     ax = fig.add_subplot(1, 3, 2)
     ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
