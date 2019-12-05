@@ -40,7 +40,7 @@ class DataGen(keras.utils.Sequence):
 
         for id_name in files_batch:
 
-            _img = self.seg_data[id_name-3:id_name+4,:,:]
+            _img = self.seg_data[id_name-depth:id_name+depth+1,:,:]
             _img = np.moveaxis(_img, 0, -1)
             _mask = self.somae_data[id_name,:,:]
             _mask = np.expand_dims(_mask,axis=2)
@@ -72,10 +72,17 @@ image_size = 704
 train_path = "/home/frtim/Desktop/data/stage1_train"
 epochs = 2
 batch_size = 8
+depth = 5
 
 ## Training Ids
-seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
-somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/yl_cb_160nm_ffn_v2.h5"
+#Zebrafinch
+# seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
+# somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/yl_cb_160nm_ffn_v2.h5"
+#Mouse
+seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
+somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
+
+
 seg_data = ReadH5File(seg_filepath, [1])
 somae_raw = ReadH5File(somae_filepath, [1])
 
@@ -84,10 +91,6 @@ somae_data = np.zeros((z_max,seg_data.shape[1],seg_data.shape[2]),dtype=np.uint6
 somae_data[:,:somae_raw.shape[1],:somae_raw.shape[2]]=somae_raw[:z_max,:,:]
 
 seg_data = seg_data[:,:,:z_max]
-
-# downsample by 4, take 128x128 and binarize
-# seg_data = seg_data[:,:128,:128]
-# somae_data = somae_data[:,:128,:128]
 
 seg_data[seg_data>0]=1
 somae_data[somae_data>0]=1
@@ -101,20 +104,17 @@ val_data_size = 64
 
 valid_ids = all_ids[:val_data_size]
 train_ids = all_ids[val_data_size:]
-train_ids = train_ids[3:-3]
-valid_ids = valid_ids[3:-3]
+train_ids = train_ids[depth:-depth]
+valid_ids = valid_ids[depth:-depth]
 
-
-gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
-
-
+# gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
 # while True:
 #         fig = plt.figure(figsize=(20, 12))
 #         fig.subplots_adjust(hspace=0.4, wspace=0.4)
 #         k = random.randint(0, int((len(train_ids)-1)/batch_size))
 #         x, y = gen.__getitem__(k)
 #         ax = fig.add_subplot(1, 2, 1)
-#         ax.imshow(np.reshape(x[r,:,:,3], (image_size, image_size)), cmap="gray")
+#         ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
 #         ax = fig.add_subplot(1, 2, 2)
 #         ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
 #         plt.show()
@@ -138,8 +138,9 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 def UNet():
-    f = [16, 32, 64, 128, 256, 512, 1024]
-    inputs = keras.layers.Input((image_size, image_size, 7))
+    # f = [16, 32, 64, 128, 256, 512, 1024]
+    f = [16, 32, 64, 64,  128, 128, 256]
+    inputs = keras.layers.Input((image_size, image_size, depth*2+1))
 
     p0 = inputs
     c1, p1 = down_block(p0, f[0]) #704 -> 352
@@ -172,12 +173,12 @@ valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batc
 train_steps = len(train_ids)//batch_size
 valid_steps = len(valid_ids)//batch_size
 
-# model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-#                     epochs=epochs)
+model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+                    epochs=epochs)
 
 # Save the Weights
-# model.save_weights("UNetW_Mouse.h5")
-model.load_weights("UNetW_Mouse.h5")
+model.save_weights("UNetW_Mouse.h5")
+# model.load_weights("UNetW_Mouse.h5")
 
 ## Dataset for prediction
 
@@ -195,7 +196,7 @@ while True:
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
 
     ax = fig.add_subplot(1, 3, 1)
-    ax.imshow(np.reshape(x[r,:,:,3], (image_size, image_size)), cmap="gray")
+    ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
 
     ax = fig.add_subplot(1, 3, 2)
     ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
