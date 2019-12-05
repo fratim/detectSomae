@@ -33,8 +33,6 @@ class DataGen(keras.utils.Sequence):
         else:
             batch_size_dyn = self.batch_size
 
-        print(batch_size_dyn)
-        
         files_batch = self.ids[index*batch_size_dyn : (index+1)*batch_size_dyn]
 
         image = []
@@ -70,7 +68,7 @@ class DataGen(keras.utils.Sequence):
     def __len__(self):
         return int(np.ceil(len(self.ids)/float(self.batch_size)))
 
-image_size = 352
+image_size = 704
 train_path = "/home/frtim/Desktop/data/stage1_train"
 epochs = 2
 batch_size = 8
@@ -94,11 +92,8 @@ seg_data = seg_data[:,:,:z_max]
 seg_data[seg_data>0]=1
 somae_data[somae_data>0]=1
 
-seg_data = seg_data[:,::2,::2]
-somae_data = somae_data[:,::2,::2]
-
-seg_data = seg_data[:,:352,:352]
-somae_data = somae_data[:,:352,:352]
+seg_data = seg_data[:,:image_size,:image_size]
+somae_data = somae_data[:,:image_size,:image_size]
 
 # find maximum z coordinate
 all_ids = np.arange(0,z_max)## Validation Data Size
@@ -143,7 +138,7 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 def UNet():
-    f = [16, 32, 64, 128, 256]
+    f = [16, 32, 64, 128, 256, 512]
     inputs = keras.layers.Input((image_size, image_size, 7))
 
     p0 = inputs
@@ -151,10 +146,12 @@ def UNet():
     c2, p2 = down_block(p1, f[1]) #352 -> 176
     c3, p3 = down_block(p2, f[2]) #176 -> 88
     c4, p4 = down_block(p3, f[3]) #88  -> 44
+    c5, p5 = down_block(p4, f[4]) #44  -> 22
 
-    bn = bottleneck(p4, f[4])
+    bn = bottleneck(p5, f[5])
 
-    u1 = up_block(bn, c4, f[3]) #44 -> 88
+    u0 = up_block(bn, c5, f[4]) #22 -> 44
+    u1 = up_block(u0, c4, f[3]) #44 -> 88
     u2 = up_block(u1, c3, f[2]) #88 -> 176
     u3 = up_block(u2, c2, f[1]) #175 -> 352
     u4 = up_block(u3, c1, f[0]) #352 -> 704
