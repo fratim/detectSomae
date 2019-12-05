@@ -138,7 +138,7 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 def UNet():
-    f = [16, 32, 64, 128, 256, 512]
+    f = [16, 32, 64, 128, 256, 512, 1024]
     inputs = keras.layers.Input((image_size, image_size, 7))
 
     p0 = inputs
@@ -147,16 +147,18 @@ def UNet():
     c3, p3 = down_block(p2, f[2]) #176 -> 88
     c4, p4 = down_block(p3, f[3]) #88  -> 44
     c5, p5 = down_block(p4, f[4]) #44  -> 22
+    c6, p6 = down_block(p5, f[5]) #22  -> 11
 
-    bn = bottleneck(p5, f[5])
+    bn = bottleneck(p6, f[6])
 
-    u0 = up_block(bn, c5, f[4]) #22 -> 44
-    u1 = up_block(u0, c4, f[3]) #44 -> 88
-    u2 = up_block(u1, c3, f[2]) #88 -> 176
-    u3 = up_block(u2, c2, f[1]) #175 -> 352
-    u4 = up_block(u3, c1, f[0]) #352 -> 704
+    u0 = up_block(bn, c6, f[5]) #22 -> 44
+    u1 = up_block(u0, c5, f[4]) #22 -> 44
+    u2 = up_block(u1, c4, f[3]) #44 -> 88
+    u3 = up_block(u2, c3, f[2]) #88 -> 176
+    u4 = up_block(u3, c2, f[1]) #175 -> 352
+    u5 = up_block(u4, c1, f[0]) #352 -> 704
 
-    outputs = keras.layers.Conv2D(1, (1, 1), padding="same", activation="sigmoid")(u4)
+    outputs = keras.layers.Conv2D(1, (1, 1), padding="same", activation="sigmoid")(u5)
     model = keras.models.Model(inputs, outputs)
     return model
 
@@ -185,7 +187,7 @@ while True:
     x, y = valid_gen.__getitem__(k)
     print(x.shape)
     result = model.predict(x)
-    result = result > 0.5
+    # result = result > 0.5
     r = random.randint(0, len(x)-1)
     print(str(k) +", " + str(r))
 
