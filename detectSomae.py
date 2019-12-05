@@ -18,12 +18,13 @@ np.random.seed = seed
 tf.seed = seed
 
 class DataGen(keras.utils.Sequence):
-    def __init__(self, ids, seg_data, somae_data, batch_size=8, image_size=128):
+    def __init__(self, ids, depth, seg_data, somae_data, batch_size=8, image_size=128):
         self.ids = ids
         self.batch_size = batch_size
         self.image_size = image_size
         self.seg_data = seg_data
         self.somae_data = somae_data
+        self.depth = depth
         self.on_epoch_end()
 
     def __getitem__(self, index):
@@ -40,7 +41,7 @@ class DataGen(keras.utils.Sequence):
 
         for id_name in files_batch:
 
-            _img = self.seg_data[id_name-depth:id_name+depth+1,:,:]
+            _img = self.seg_data[id_name-self.depth:id_name+self.depth+1,:,:]
             _img = np.moveaxis(_img, 0, -1)
             _mask = self.somae_data[id_name,:,:]
             _mask = np.expand_dims(_mask,axis=2)
@@ -68,57 +69,6 @@ class DataGen(keras.utils.Sequence):
     def __len__(self):
         return int(np.ceil(len(self.ids)/float(self.batch_size)))
 
-image_size = 704
-train_path = "/home/frtim/Desktop/data/stage1_train"
-epochs = 2
-batch_size = 8
-depth = 5
-
-## Training Ids
-#Zebrafinch
-# seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
-# somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/yl_cb_160nm_ffn_v2.h5"
-#Mouse
-seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
-somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
-
-
-seg_data = ReadH5File(seg_filepath, [1])
-somae_raw = ReadH5File(somae_filepath, [1])
-
-z_max = min(seg_data.shape[0],somae_raw.shape[0])
-somae_data = np.zeros((z_max,seg_data.shape[1],seg_data.shape[2]),dtype=np.uint64)
-somae_data[:,:somae_raw.shape[1],:somae_raw.shape[2]]=somae_raw[:z_max,:,:]
-
-seg_data = seg_data[:,:,:z_max]
-
-seg_data[seg_data>0]=1
-somae_data[somae_data>0]=1
-
-seg_data = seg_data[:,:image_size,:image_size]
-somae_data = somae_data[:,:image_size,:image_size]
-
-# find maximum z coordinate
-all_ids = np.arange(0,z_max)## Validation Data Size
-val_data_size = 64
-
-valid_ids = all_ids[:val_data_size]
-train_ids = all_ids[val_data_size:]
-train_ids = train_ids[depth:-depth]
-valid_ids = valid_ids[depth:-depth]
-
-# gen = DataGen(train_ids, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
-# while True:
-#         fig = plt.figure(figsize=(20, 12))
-#         fig.subplots_adjust(hspace=0.4, wspace=0.4)
-#         k = random.randint(0, int((len(train_ids)-1)/batch_size))
-#         x, y = gen.__getitem__(k)
-#         ax = fig.add_subplot(1, 2, 1)
-#         ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
-#         ax = fig.add_subplot(1, 2, 2)
-#         ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
-#         plt.show()
-
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
@@ -137,7 +87,7 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
     return c
 
-def UNet():
+def UNet(image_size, depth):
     f = [16, 32, 64, 128, 256, 512, 1024]
     # f = [16, 32, 64, 64,  128, 128, 256]
     inputs = keras.layers.Input((image_size, image_size, depth*2+1))
@@ -163,43 +113,101 @@ def UNet():
     model = keras.models.Model(inputs, outputs)
     return model
 
-model = UNet()
-model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
-model.summary()
+def TrainOnMouse():
+    image_size = 704
+    epochs = 2
+    batch_size = 8
+    depth = 5
 
-train_gen = DataGen(train_ids, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
-valid_gen = DataGen(valid_ids, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
+    #Mouse
+    seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
+    somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
 
-train_steps = len(train_ids)//batch_size
-valid_steps = len(valid_ids)//batch_size
+    seg_data = ReadH5File(seg_filepath, [1])
+    somae_raw = ReadH5File(somae_filepath, [1])
 
-model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-                    epochs=epochs)
+    z_max = min(seg_data.shape[0],somae_raw.shape[0])
 
-# Save the Weights
-model.save_weights("UNetW_Mouse.h5")
-# model.load_weights("UNetW_Mouse.h5")
+    somae_data = np.zeros((z_max,seg_data.shape[1],seg_data.shape[2]),dtype=np.uint64)
+    somae_data[:,:somae_raw.shape[1],:somae_raw.shape[2]]=somae_raw[:z_max,:,:]
 
-## Dataset for prediction
-print ("Batch, Image")
-while True:
-    k = random.randint(0, int((len(valid_ids)-1)/batch_size))
-    x, y = valid_gen.__getitem__(k)
-    print(x.shape)
-    result = model.predict(x)
-    # result = result > 0.5
-    r = random.randint(0, len(x)-1)
-    print(str(k) +", " + str(r))
+    seg_data = seg_data[:,:,:z_max]
 
-    fig = plt.figure(figsize=(20, 12))
-    fig.subplots_adjust(hspace=0.4, wspace=0.4)
+    seg_data[seg_data>0]=1
+    somae_data[somae_data>0]=1
 
-    ax = fig.add_subplot(1, 3, 1)
-    ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+    seg_data = seg_data[:,:image_size,:image_size]
+    somae_data = somae_data[:,:image_size,:image_size]
 
-    ax = fig.add_subplot(1, 3, 2)
-    ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
+    # find maximum z coordinate
+    all_ids = np.arange(0,z_max)## Validation Data Size
+    val_data_size = 64
 
-    ax = fig.add_subplot(1, 3, 3)
-    ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
-    plt.show()
+    valid_ids = all_ids[:val_data_size]
+    train_ids = all_ids[val_data_size:]
+    train_ids = train_ids[depth:-depth]
+    valid_ids = valid_ids[depth:-depth]
+
+    # gen = DataGen(train_ids, depth, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
+    # while True:
+    #         fig = plt.figure(figsize=(20, 12))
+    #         fig.subplots_adjust(hspace=0.4, wspace=0.4)
+    #         k = random.randint(0, int((len(train_ids)-1)/batch_size))
+    #         x, y = gen.__getitem__(k)
+    #         ax = fig.add_subplot(1, 2, 1)
+    #         ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+    #         ax = fig.add_subplot(1, 2, 2)
+    #         ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
+    #         plt.show()
+
+    model = UNet(image_size, depth)
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
+    model.summary()
+
+    train_gen = DataGen(train_ids, depth, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
+    valid_gen = DataGen(valid_ids, depth, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
+
+    train_steps = len(train_ids)//batch_size
+    valid_steps = len(valid_ids)//batch_size
+
+    model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
+    epochs=epochs)
+
+    # Save the Weights
+    model.save_weights("UNetW_Mouse.h5")
+    # model.load_weights("UNetW_Mouse.h5")
+
+    ## Dataset for prediction
+    print ("Batch, Image")
+    while True:
+        k = random.randint(0, int((len(valid_ids)-1)/batch_size))
+        x, y = valid_gen.__getitem__(k)
+        print(x.shape)
+        result = model.predict(x)
+        # result = result > 0.5
+        r = random.randint(0, len(x)-1)
+        print(str(k) +", " + str(r))
+
+        fig = plt.figure(figsize=(20, 12))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+
+        ax = fig.add_subplot(1, 3, 1)
+        ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+
+        ax = fig.add_subplot(1, 3, 2)
+        ax.imshow(np.reshape(y[r]*255, (image_size, image_size)), cmap="gray")
+
+        ax = fig.add_subplot(1, 3, 3)
+        ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
+        plt.show()
+
+def main():
+    TrainOnMouse()
+
+if True == 1:
+    main()
+
+## Training Ids
+#Zebrafinch
+# seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
+# somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/yl_cb_160nm_ffn_v2.h5"
