@@ -72,7 +72,7 @@ data_path = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
 # sample_name= "seg_Mouse_773x832x832"
 # compare= "somae_Mouse_773x832x832"
 sample_name = "Zebrafinch-seg-dsp_8"
-compare = "Zebrafinch-somae-dsp_8"
+compare = "Zebrafinch-somae_refined-dsp_8"
 
 
 # box = [0,1152,0,1000,0,1000]
