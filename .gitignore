@@ -12,6 +12,10 @@ examples/synapses_512
 examples/synapses_projected
 examples/output*
 examples/tmp*
+Mouse/*.h5
+Mouse/neurons/*
+Mouse/segmentations/*
+Zebrafinch/*.h5
 *.h5
 
 # Byte-compiled / optimized / DLL files

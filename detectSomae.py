@@ -6,6 +6,7 @@ import random
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import math
 
 import tensorflow as tf
 from tensorflow import keras
@@ -86,7 +87,6 @@ class PredictDataGen(keras.utils.Sequence):
             batch_size_dyn = self.batch_size
 
         files_batch = self.ids[index*batch_size_dyn : (index+1)*batch_size_dyn]
-
         image = []
         for id_name in files_batch:
             _img = self.seg_data[id_name-self.depth:id_name+self.depth+1,:,:]
@@ -182,18 +182,6 @@ def TrainOnMouse():
     train_ids = train_ids[depth:-depth]
     valid_ids = valid_ids[depth:-depth]
 
-    # gen = DataGen(train_ids, depth, seg_data, somae_data, batch_size=batch_size, image_size=image_size)
-    # while True:
-    #         fig = plt.figure(figsize=(20, 12))
-    #         fig.subplots_adjust(hspace=0.4, wspace=0.4)
-    #         k = random.randint(0, int((len(train_ids)-1)/batch_size))
-    #         x, y = gen.__getitem__(k)
-    #         ax = fig.add_subplot(1, 2, 1)
-    #         ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
-    #         ax = fig.add_subplot(1, 2, 2)
-    #         ax.imshow(np.reshape(y[r,:,:,0], (image_size, image_size)), cmap="gray")
-    #         plt.show()
-
     model = UNet(image_size, depth)
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
     model.summary()
@@ -216,7 +204,6 @@ def TrainOnMouse():
     for _ in range(12):
         k = random.randint(0, int((len(valid_ids)-1)/batch_size))
         x, y = valid_gen.__getitem__(k)
-        print(x.shape)
         result = model.predict(x)
         # result = result > 0.5
         r = random.randint(0, len(x)-1)
@@ -238,70 +225,75 @@ def TrainOnMouse():
 def predictZebrafinch():
 
     image_size = 704
-    # epochs = 2
     batch_size = 8
     depth = 5
 
     #Mouse
-    seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
-    # somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
-
+    seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-seg-dsp_8.h5"
+    output_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
     seg_data = ReadH5File(seg_filepath, [1])
-    # somae_raw = ReadH5File(somae_filepath, [1])
-
+    somae_out = seg_data.copy()
+    
     z_max = seg_data.shape[0]
 
-    # somae_data = np.zeros((z_max,seg_data.shape[1],seg_data.shape[2]),dtype=np.uint64)
-    # somae_data[:,:somae_raw.shape[1],:somae_raw.shape[2]]=somae_raw[:z_max,:,:]
-    # seg_data = seg_data[:,:,:z_max]
-
     seg_data[seg_data>0]=1
-    # somae_data[somae_data>0]=1
+
+    somae_mask = np.zeros((seg_data.shape),dtype=np.uint64)
 
     if seg_data.shape[1]!=image_size or seg_data.shape[2]!=image_size:
         raise ValueError("Image Size not correct")
-    # seg_data = seg_data[:,:image_size,:image_size]
-    # somae_data = somae_data[:,:image_size,:image_size]
 
     # find maximum z coordinate
-    all_ids = np.arange(0,z_max)## Validation Data Size
-    val_data_size = 64
-
-    valid_ids = all_ids[:val_data_size]
-    train_ids = all_ids[val_data_size:]
-    train_ids = train_ids[depth:-depth]
-    valid_ids = valid_ids[depth:-depth]
+    predict_ids = np.arange(0,z_max)## Validation Data Size
+    predict_ids = predict_ids[depth:-depth]
 
     model = UNet(image_size, depth)
     model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
     model.summary()
 
-    predict_gen = PredictDataGen(valid_ids, depth, seg_data, image_size=image_size, batch_size=batch_size)
+    predict_gen = PredictDataGen(predict_ids, depth, seg_data, image_size=image_size, batch_size=batch_size)
+    predict_steps = math.ceil(len(predict_ids)/batch_size)
 
-    predict_steps = len(valid_ids)//batch_size
-
-    # Save the Weights
+    # Load the Weights
     model.load_weights("UNetW_Mouse.h5")
 
-    ## Dataset for prediction
-    print ("Batch, Image")
-    for _ in range(12):
-        k = random.randint(0, int((len(valid_ids)-1)/batch_size))
+    # ## Dataset for prediction
+    # print ("Batch, Image")
+    # for _ in range(12):
+    #     k = random.randint(0, int((len(predict_ids)-1)/batch_size))
+    #     x = predict_gen.__getitem__(k)
+    #     result = model.predict(x)
+    #     result = result > 0.5
+    #     r = random.randint(0, len(x)-1)
+    #     print(str(k) +", " + str(r))
+    #     fig = plt.figure(figsize=(20, 12))
+    #     fig.subplots_adjust(hspace=0.4, wspace=0.4)
+    #
+    #     ax = fig.add_subplot(1, 2, 1)
+    #     ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+    #
+    #     ax = fig.add_subplot(1, 2, 2)
+    #     ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
+    #     plt.show()
+
+    print("steps total: " + str(predict_steps))
+    idx_start = depth
+    for k in range(0,predict_steps):
+        print("step " + str(k) + "...")
         x = predict_gen.__getitem__(k)
         result = model.predict(x)
-        result = result > 0.5
-        r = random.randint(0, len(x)-1)
-        print(str(k) +", " + str(r))
+        result[result<=0.5]=0
+        result[result>0.5]=1
+        somae_mask[idx_start:idx_start+len(x),:,:]=np.squeeze(result)
+        idx_start = idx_start + len(x)
 
-        fig = plt.figure(figsize=(20, 12))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+    print(np.min(somae_mask))
+    print(np.max(somae_mask))
+    somae_out[somae_mask==0]=0
 
-        ax = fig.add_subplot(1, 2, 1)
-        ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+    WriteH5File(somae_out,output_folder+"Zebrafinch-somae-dsp_8.h5","main")
 
-        ax = fig.add_subplot(1, 2, 2)
-        ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
-        plt.show()
+
 
 def main():
     # TrainOnMouse()
@@ -309,8 +301,3 @@ def main():
 
 if True == 1:
     main()
-
-## Training Ids
-#Zebrafinch
-# seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-44-dsp_8.h5"
-# somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/yl_cb_160nm_ffn_v2.h5"
