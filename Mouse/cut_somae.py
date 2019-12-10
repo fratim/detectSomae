@@ -35,8 +35,8 @@ def get_std(somae_in, std, avg_z, avg_y, avg_x):
                     # std_z[somae_in[iz,iy,ix]]+=((iz-avg_z[somae_in[iz,iy,ix]])/avg_z[somae_in[iz,iy,ix]])**2
                     # std_y[somae_in[iz,iy,ix]]+=((iy-avg_y[somae_in[iz,iy,ix]])/avg_y[somae_in[iz,iy,ix]])**2
                     # std_x[somae_in[iz,iy,ix]]+=((ix-avg_x[somae_in[iz,iy,ix]])/avg_x[somae_in[iz,iy,ix]])**2
-                    std[somae_in[iz,iy,ix]]+=((iz-avg_z[somae_in[iz,iy,ix]])/avg_z[somae_in[iz,iy,ix]])**2+((iy-avg_y[somae_in[iz,iy,ix]])/avg_y[somae_in[iz,iy,ix]])**2+((ix-avg_x[somae_in[iz,iy,ix]])/avg_x[somae_in[iz,iy,ix]])**2
-
+                    dist=np.sqrt(((iz-avg_z[somae_in[iz,iy,ix]])/avg_z[somae_in[iz,iy,ix]])**2+((iy-avg_y[somae_in[iz,iy,ix]])/avg_y[somae_in[iz,iy,ix]])**2+((ix-avg_x[somae_in[iz,iy,ix]])/avg_x[somae_in[iz,iy,ix]])**2)
+                    std[somae_in[iz,iy,ix]]+=dist**2
 
     return std
 
@@ -50,7 +50,7 @@ def calculate_new_colors(somae_in, avg_z, avg_y, avg_x, std):
                     curr_Id = somae_in[iz,iy,ix]
                     # dst = np.sqrt(((iz - avg_z[curr_Id])/avg_z[curr_Id])**2 + ((iy - avg_y[curr_Id])/avg_y[curr_Id])**2 + ((ix - avg_x[curr_Id])/avg_x[curr_Id])**2)
                     dst = np.sqrt(((iz - avg_z[curr_Id])/avg_z[curr_Id])**2 + ((iy - avg_y[curr_Id])/avg_y[curr_Id])**2 + ((ix - avg_x[curr_Id])/avg_x[curr_Id])**2)
-                    if dst>1.3*std[curr_Id]:
+                    if dst>1*std[curr_Id]:
                         somae_in[iz,iy,ix]=68
 
     return somae_in
