@@ -4,3 +4,12 @@ Question:
 
 Idea:
 1. Implement more data augmentation
+
+TODO:
+1. write refinement of Somae to use numba or write it in c++
+2. incorporate resolution into mouse somae cutting
+
+Questions to Alex:
+1. Will there also be cuts in the brain data segmentation?
+2. Do we already have synapses for the brain segmentation?
+3. What is the maximum distance to still project synapses?

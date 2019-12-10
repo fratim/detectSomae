@@ -201,11 +201,11 @@ def TrainOnMouse():
 
     ## Dataset for prediction
     print ("Batch, Image")
-    for _ in range(12):
+    for _ in range(20):
         k = random.randint(0, int((len(valid_ids)-1)/batch_size))
         x, y = valid_gen.__getitem__(k)
         result = model.predict(x)
-        # result = result > 0.5
+        result = result > 0.7
         r = random.randint(0, len(x)-1)
         print(str(k) +", " + str(r))
 
@@ -233,7 +233,7 @@ def predictZebrafinch():
     output_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
     seg_data = ReadH5File(seg_filepath, [1])
     somae_out = seg_data.copy()
-    
+
     z_max = seg_data.shape[0]
 
     seg_data[seg_data>0]=1
@@ -296,7 +296,7 @@ def predictZebrafinch():
 
 
 def main():
-    # TrainOnMouse()
+    TrainOnMouse()
     predictZebrafinch()
 
 if True == 1:
