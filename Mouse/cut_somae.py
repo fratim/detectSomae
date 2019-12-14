@@ -14,7 +14,7 @@ def get_mean(somae_in, avg_z, avg_y, avg_x, n_points):
     for iz in range(somae_in.shape[0]):
         for iy in range(somae_in.shape[1]):
             for ix in range(somae_in.shape[2]):
-                if somae_in[iz,iy,ix]!=0:
+                if somae_in[iz,iy,ix]!=0 and somae_in[iz,iy,ix]!=184:
 
                     avg_z[somae_in[iz,iy,ix]]+=iz
                     avg_y[somae_in[iz,iy,ix]]+=iy
@@ -30,7 +30,7 @@ def get_std(somae_in, std, avg_z, avg_y, avg_x):
     for iz in range(somae_in.shape[0]):
         for iy in range(somae_in.shape[1]):
             for ix in range(somae_in.shape[2]):
-                if somae_in[iz,iy,ix]!=0:
+                if somae_in[iz,iy,ix]!=0 and somae_in[iz,iy,ix]!=184:
 
                     # std_z[somae_in[iz,iy,ix]]+=((iz-avg_z[somae_in[iz,iy,ix]])/avg_z[somae_in[iz,iy,ix]])**2
                     # std_y[somae_in[iz,iy,ix]]+=((iy-avg_y[somae_in[iz,iy,ix]])/avg_y[somae_in[iz,iy,ix]])**2
@@ -46,32 +46,15 @@ def calculate_new_colors(somae_in, avg_z, avg_y, avg_x, std):
     for iz in range(somae_in.shape[0]):
         for iy in range(somae_in.shape[1]):
             for ix in range(somae_in.shape[2]):
-                if somae_in[iz,iy,ix]!=0:
-                    curr_Id = somae_in[iz,iy,ix]
-                    # dst = np.sqrt(((iz - avg_z[curr_Id])/avg_z[curr_Id])**2 + ((iy - avg_y[curr_Id])/avg_y[curr_Id])**2 + ((ix - avg_x[curr_Id])/avg_x[curr_Id])**2)
-                    dst = np.sqrt(((iz - avg_z[curr_Id])/avg_z[curr_Id])**2 + ((iy - avg_y[curr_Id])/avg_y[curr_Id])**2 + ((ix - avg_x[curr_Id])/avg_x[curr_Id])**2)
-                    if dst>1*std[curr_Id]:
-                        somae_in[iz,iy,ix]=68
-
+                if somae_in[iz,iy,ix]!=0 and somae_in[iz,iy,ix]!=184:
+                    curr_ID = somae_in[iz,iy,ix]
+                    # dst = np.sqrt(((iz - avg_z[curr_ID])/avg_z[curr_ID])**2 + ((iy - avg_y[curr_ID])/avg_y[curr_ID])**2 + ((ix - avg_x[curr_ID])/avg_x[curr_ID])**2)
+                    dst = np.sqrt(((iz - avg_z[curr_ID])/avg_z[curr_ID])**2 + ((iy - avg_y[curr_ID])/avg_y[curr_ID])**2 + ((ix - avg_x[curr_ID])/avg_x[curr_ID])**2)
+                    if dst>1.9*std[curr_ID]:
+                        somae_in[iz,iy,ix]=184
     return somae_in
 
-
-def main():
-    folder_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/"
-    output_folder = "/home/frtim/Documents/Code/SomaeDetection/Mouse/"
-
-    filename = folder_path+"somae_reduced_Mouse_773x832x832.h5"
-    somae_in = ReadH5File(filename=filename,box=[1])
-
-    seg_IDS = np.unique(somae_in)
-    seg_IDS = np.delete(seg_IDS, 0)
-    print(seg_IDS)
-
-    avg_z = Dict.empty(key_type=types.float64,value_type=types.float64)
-    avg_y = Dict.empty(key_type=types.float64,value_type=types.float64)
-    avg_x = Dict.empty(key_type=types.float64,value_type=types.float64)
-    std = Dict.empty(key_type=types.float64,value_type=types.float64)
-    n_points = Dict.empty(key_type=types.float64,value_type=types.float64)
+def cutting_step(seg_IDS, somae_in, avg_z, avg_y, avg_x, std, n_points):
 
     for ID in seg_IDS:
         avg_z[ID] = 0
@@ -92,12 +75,35 @@ def main():
     for ID in seg_IDS:
         std[ID] = np.sqrt(std[ID]/(n_points[ID]-1))
 
-    print("Calculating new colors")
-
     somae_in = calculate_new_colors(somae_in, avg_z, avg_y, avg_x, std)
 
-    filename = output_folder+"somae_reduced_colored_Mouse_773x832x832.h5"
-    WriteH5File(somae_in, filename,   "main")
+    return somae_in, avg_z, avg_y, avg_x, std, n_points
+
+def main():
+    folder_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/"
+    output_folder = "/home/frtim/Documents/Code/SomaeDetection/Mouse/"
+
+    filename = folder_path+"somae_reduced_Mouse_773x832x832.h5"
+    somae_in = ReadH5File(filename=filename,box=[1])
+
+    seg_IDS = np.unique(somae_in)
+    if seg_IDS[0]==0:
+        seg_IDS = seg_IDS[1:]
+    if seg_IDS[-1]==184:
+        seg_IDS = seg_IDS[:-1]
+
+    avg_z = Dict.empty(key_type=types.float64,value_type=types.float64)
+    avg_y = Dict.empty(key_type=types.float64,value_type=types.float64)
+    avg_x = Dict.empty(key_type=types.float64,value_type=types.float64)
+    std = Dict.empty(key_type=types.float64,value_type=types.float64)
+    n_points = Dict.empty(key_type=types.float64,value_type=types.float64)
+
+    for s in range(100):
+        print("Step " + str(s), flush = True)
+        somae_in, avg_z, avg_y, avg_x, std, n_points = cutting_step(seg_IDS, somae_in, avg_z, avg_y, avg_x, std, n_points)
+        filename = output_folder+"somae_reduced_colored_Mouse_step_" + str(s).zfill(4) +"_773x832x832.h5"
+        WriteH5File(somae_in, filename,   "main")
+
 
 if 1==True:
     main()

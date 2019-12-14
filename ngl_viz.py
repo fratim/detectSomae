@@ -71,7 +71,7 @@ idRes = 1 #which resolution to use to search for IDs
 res=[20,18,18]; # resolution of the data
 data_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/"
 sample_name= "seg_Mouse_773x832x832"
-compare= "somae_reduced_colored_Mouse_773x832x832"
+compare= "somae_reduced_cut_Mouse_773x832x832"
 # sample_name = "Zebrafinch-seg-dsp_8"
 # compare = "Zebrafinch-somae_refined-dsp_8"
 
@@ -81,6 +81,7 @@ box = [1]
 
 fn_org =                 data_path  + sample_name + ".h5"
 fn_compare =             data_path  + compare + ".h5"
+
 
 # fn_org =                 data_path + sample_name + "/" + sample_name + ".h5"
 # fn_filled_gt =           data_path + sample_name + "/" + "gt/" + "filled_gt.h5"

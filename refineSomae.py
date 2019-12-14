@@ -38,7 +38,7 @@ from numba import njit
 #
 #     return items_of_component, label_to_cclabel
 #
-input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
+# input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
 # somae_raw = ReadH5File(input_folder+"Zebrafinch-somae-dsp_8.h5",[1])
 #
 # cc_labels, n_comp = computeConnectedComp26(somae_raw)
