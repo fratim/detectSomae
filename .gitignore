@@ -19,6 +19,7 @@ Zebrafinch/*.h5
 *.h5
 Mouse/images/*
 Mouse/images_cut/*
+logs/*
 
 
 # Byte-compiled / optimized / DLL files

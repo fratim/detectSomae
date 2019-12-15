@@ -11,6 +11,7 @@ import math
 import tensorflow as tf
 from tensorflow import keras
 from dataIO import*
+from datetime import datetime
 
 ## Seeding
 seed = 2019
@@ -103,6 +104,43 @@ class PredictDataGen(keras.utils.Sequence):
     def __len__(self):
         return int(np.ceil(len(self.ids)/float(self.batch_size)))
 
+class WeightedBinaryCrossEntropy(keras.losses.Loss):
+    """
+    Args:
+      pos_weight: Scalar to affect the positive labels of the loss function.
+      weight: Scalar to affect the entirety of the loss function.
+      from_logits: Whether to compute loss form logits or the probability.
+      reduction: Type of tf.keras.losses.Reduction to apply to loss.
+      name: Name of the loss function.
+    """
+    def __init__(self, pos_weight, weight, from_logits=False,
+                 reduction=keras.losses.Reduction.AUTO,
+                 name='weighted_binary_crossentropy'):
+        super(WeightedBinaryCrossEntropy, self).__init__(reduction=reduction,
+                                                         name=name)
+        self.pos_weight = pos_weight
+        self.weight = weight
+        self.from_logits = from_logits
+
+    def call(self, y_true, y_pred):
+        if not self.from_logits:
+            # Manually calculate the weighted cross entropy.
+            # Formula is qz * -log(sigmoid(x)) + (1 - z) * -log(1 - sigmoid(x))
+            # where z are labels, x is logits, and q is the weight.
+            # Since the values passed are from sigmoid (assuming in this case)
+            # sigmoid(x) will be replaced by y_pred
+
+            # qz * -log(sigmoid(x)) 1e-6 is added as an epsilon to stop passing a zero into the log
+            x_1 = y_true * self.pos_weight * -tf.math.log(y_pred + 1e-6)
+
+            # (1 - z) * -log(1 - sigmoid(x)). Epsilon is added to prevent passing a zero into the log
+            x_2 = (1 - y_true) * -tf.math.log(1 - y_pred + 1e-6)
+
+            return tf.add(x_1, x_2) * self.weight
+
+        # Use built in function
+        return tf.nn.weighted_cross_entropy_with_logits(y_true, y_pred, self.pos_weight) * self.weight
+
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
     c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
@@ -149,13 +187,13 @@ def UNet(image_size, depth):
 
 def TrainOnMouse():
     image_size = 704
-    epochs = 2
+    epochs = 50
     batch_size = 8
     depth = 5
 
     #Mouse
     seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
-    somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_Mouse_773x832x832.h5"
+    somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_cut_Mouse_773x832x832.h5"
 
     seg_data = ReadH5File(seg_filepath, [1])
     somae_raw = ReadH5File(somae_filepath, [1])
@@ -182,8 +220,11 @@ def TrainOnMouse():
     train_ids = train_ids[depth:-depth]
     valid_ids = valid_ids[depth:-depth]
 
+    logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
+
     model = UNet(image_size, depth)
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
+    model.compile(optimizer="adam", loss=WeightedBinaryCrossEntropy(13, 1), metrics=["acc"])
     model.summary()
 
     train_gen = DataGen(train_ids, depth, seg_data, somae_data, image_size=image_size, batch_size=batch_size)
@@ -192,8 +233,12 @@ def TrainOnMouse():
     train_steps = len(train_ids)//batch_size
     valid_steps = len(valid_ids)//batch_size
 
+    filepath = "UNetW_Mouse_ongoing_"+ datetime.now().strftime("%Y%m%d-%H%M%S")+".h5"
+    save_model = keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
+
     model.fit_generator(train_gen, validation_data=valid_gen, steps_per_epoch=train_steps, validation_steps=valid_steps,
-    epochs=epochs)
+    epochs=epochs, callbacks=[tensorboard_callback, save_model])
+
 
     # Save the Weights
     model.save_weights("UNetW_Mouse.h5")
@@ -248,33 +293,33 @@ def predictZebrafinch():
     predict_ids = predict_ids[depth:-depth]
 
     model = UNet(image_size, depth)
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
+    model.compile(optimizer="adam", loss=WeightedBinaryCrossEntropy(10, 1), metrics=["acc"])
     model.summary()
 
     predict_gen = PredictDataGen(predict_ids, depth, seg_data, image_size=image_size, batch_size=batch_size)
     predict_steps = math.ceil(len(predict_ids)/batch_size)
 
     # Load the Weights
-    model.load_weights("UNetW_Mouse.h5")
+    model.load_weights("UNetW_Mouse_ongoing_20191214-190525.h5")
 
-    # ## Dataset for prediction
-    # print ("Batch, Image")
-    # for _ in range(12):
-    #     k = random.randint(0, int((len(predict_ids)-1)/batch_size))
-    #     x = predict_gen.__getitem__(k)
-    #     result = model.predict(x)
-    #     result = result > 0.5
-    #     r = random.randint(0, len(x)-1)
-    #     print(str(k) +", " + str(r))
-    #     fig = plt.figure(figsize=(20, 12))
-    #     fig.subplots_adjust(hspace=0.4, wspace=0.4)
-    #
-    #     ax = fig.add_subplot(1, 2, 1)
-    #     ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
-    #
-    #     ax = fig.add_subplot(1, 2, 2)
-    #     ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
-    #     plt.show()
+    ## Dataset for prediction
+    print ("Batch, Image")
+    for _ in range(12):
+        k = random.randint(0, int((len(predict_ids)-1)/batch_size))
+        x = predict_gen.__getitem__(k)
+        result = model.predict(x)
+        result = result > 0.5
+        r = random.randint(0, len(x)-1)
+        print(str(k) +", " + str(r))
+        fig = plt.figure(figsize=(20, 12))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+
+        ax = fig.add_subplot(1, 2, 1)
+        ax.imshow(np.reshape(x[r,:,:,depth], (image_size, image_size)), cmap="gray")
+
+        ax = fig.add_subplot(1, 2, 2)
+        ax.imshow(np.reshape(result[r]*255, (image_size, image_size)), cmap="gray")
+        plt.show()
 
     print("steps total: " + str(predict_steps))
     idx_start = depth
@@ -293,10 +338,8 @@ def predictZebrafinch():
 
     WriteH5File(somae_out,output_folder+"Zebrafinch-somae-dsp_8.h5","main")
 
-
-
 def main():
-    TrainOnMouse()
+    # TrainOnMouse()
     predictZebrafinch()
 
 if True == 1:
