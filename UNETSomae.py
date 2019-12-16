@@ -53,6 +53,7 @@ def conv2d_T(inputs , filters):
     output_shape_ = inputs.shape.as_list()
     output_shape_[1]=output_shape_[1]*strides
     output_shape_[2]=output_shape_[2]*strides
+    output_shape_[3]=filters.shape[2]
     out = tf.nn.conv2d_transpose( inputs , filters, output_shape=output_shape_, strides=2 , padding=padding )
     return tf.nn.relu(out)
 
@@ -82,16 +83,16 @@ shapes = [
     [ 3, 3, filters[9],           filters[10]],     #L52 -> L53
 
     [ 2, 2, filters[11],           filters[10]],     #L53 -> L44
-    [ 3, 3, filters[11],           filters[12]],     #L44 -> L45
+    [ 3, 3, 2*filters[11],         filters[12]],     #L44 -> L45
     [ 3, 3, filters[12],           filters[13]],     #L45 -> L46
     [ 2, 2, filters[14],           filters[13]],     #L46 -> L34
-    [ 3, 3, filters[14],           filters[15]],     #L34 -> L35
+    [ 3, 3, 2*filters[14],         filters[15]],     #L34 -> L35
     [ 3, 3, filters[15],           filters[16]],     #L35 -> L36
     [ 2, 2, filters[17],           filters[16]],     #L36 -> L24
-    [ 3, 3, filters[17],           filters[18]],     #L24 -> L25
+    [ 3, 3, 2*filters[17],         filters[18]],     #L24 -> L25
     [ 3, 3, filters[18],           filters[19]],     #L25 -> L26
     [ 2, 2, filters[20],           filters[19]],     #L25 -> L14
-    [ 3, 3, filters[20],           filters[21]],     #L14 -> L15
+    [ 3, 3, 2*filters[20],           filters[21]],     #L14 -> L15
     [ 3, 3, filters[21],           filters[22]],     #L15 -> L16
 
     [ 1, 1, filters[22],           filters[23]],     #L16 -> L17
@@ -121,20 +122,23 @@ def model( L11 ) :
     L52 = conv2d(L51, weights[8])
     L53 = conv2d(L52, weights[9])
 
-    L44 = conv2d_T(L53, weights[10])
-    # L44 = tf.concat([L43,L44_],axis=3)
+    L44_ = conv2d_T(L53, weights[10])
+    L44 = tf.concat([L43,L44_],axis=3)
     L45 = conv2d(L44, weights[11])
     L46 = conv2d(L45, weights[12])
 
-    L34 = conv2d_T(L46, weights[13])
+    L34_ = conv2d_T(L46, weights[13])
+    L34 = tf.concat([L33,L34_],axis=3)
     L35 = conv2d(L34, weights[14])
     L36 = conv2d(L35, weights[15])
 
-    L24 = conv2d_T(L36, weights[16])
+    L24_ = conv2d_T(L36, weights[16])
+    L24 = tf.concat([L23,L24_],axis=3)
     L25 = conv2d(L24, weights[17])
     L26 = conv2d(L25, weights[18])
 
-    L14 = conv2d_T(L26, weights[19])
+    L14_ = conv2d_T(L26, weights[19])
+    L14 = tf.concat([L13,L14_],axis=3)
     L15 = conv2d(L14, weights[20])
     L16 = conv2d(L15, weights[21])
 
