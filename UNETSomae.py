@@ -193,6 +193,8 @@ def loss( gt , pred ):
     return w_loss( gt , pred )
 
 optimizer = tf.optimizers.Adam( learning_rate )
+train_acc = tf.metrics.BinaryAccuracy()
+valid_acc = tf.metrics.BinaryAccuracy()
 
 def train_step( model, inputs , gt ):
     with tf.GradientTape() as tape:
@@ -201,12 +203,16 @@ def train_step( model, inputs , gt ):
     grads = tape.gradient( current_loss , weights )
     optimizer.apply_gradients( zip( grads , weights ) )
     train_loss = tf.reduce_mean( current_loss )
+    train_acc.update_state(tf.reshape(gt,[-1]), tf.reshape(pred,[-1]))
+
     return train_loss
 
 def predict_step( model, inputs, gt):
     pred = model(inputs)
     current_loss = loss( gt, pred)
     val_loss = tf.reduce_mean( current_loss )
+    valid_acc.update_state(tf.reshape(gt,[-1]), tf.reshape(pred,[-1]))
+
     return pred, val_loss
 
 train_ids = np.random.permutation(train_data.shape[0])
@@ -220,18 +226,11 @@ for e in range( epochs ):
 
         if count%50 == 0 and count>0:
             print(str(count) + "/" + str(len(train_ids)) )
-            print("Train loss: " + str(train_loss/count))
+            print("Train loss: " + str(train_loss.numpy()/count))
+            print("Train accu: " + str(train_acc.result().numpy()))
 
         image = train_data[k:k+batch_size,:,:,0,None]
         mask = train_data[k:k+batch_size,:,:,1,None]
-
-        # fig = plt.figure(figsize=(20, 12))
-        # fig.subplots_adjust(hspace=0.4, wspace=0.4)
-        # ax = fig.add_subplot(1, 2, 1)
-        # ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
-        # ax = fig.add_subplot(1, 2, 2)
-        # ax.imshow(np.reshape(mask[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-        # plt.show()
 
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
         mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
@@ -250,23 +249,27 @@ for e in range( epochs ):
         _, cur_loss = predict_step(model , image, mask_gt)
         val_loss+=cur_loss
 
-    val_loss = val_loss/len(valid_ids)
-    print("Validation loss is: " + str(val_loss))
+    val_loss = val_loss.numpy()/len(valid_ids)
+    print("Valid loss: " + str(val_loss))
+    print("Valid accu: " + str(valid_acc.result().numpy()))
 
-    for j in valid_ids[::5]:
+    train_acc.reset_states()
+    valid_acc.reset_states()
 
-        image = validation_data[None, j,:,:,0,None]
-        mask = validation_data[None,j,:,:,1,None]
-        image = tf.convert_to_tensor( image , dtype=tf.float32 )
-        mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
-        mask_pred, _ = predict_step(model , image, mask_gt)
-
-        fig = plt.figure(figsize=(20, 12))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
-        ax = fig.add_subplot(1, 3, 1)
-        ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
-        ax = fig.add_subplot(1, 3, 2)
-        ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-        ax = fig.add_subplot(1, 3, 3)
-        ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-        plt.show()
+# for j in valid_ids[::5]:
+#
+#     image = validation_data[None, j,:,:,0,None]
+#     mask = validation_data[None,j,:,:,1,None]
+#     image = tf.convert_to_tensor( image , dtype=tf.float32 )
+#     mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
+#     mask_pred, _ = predict_step(model , image, mask_gt)
+#
+#     fig = plt.figure(figsize=(20, 12))
+#     fig.subplots_adjust(hspace=0.4, wspace=0.4)
+#     ax = fig.add_subplot(1, 3, 1)
+#     ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
+#     ax = fig.add_subplot(1, 3, 2)
+#     ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+#     ax = fig.add_subplot(1, 3, 3)
+#     ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+#     plt.show()
