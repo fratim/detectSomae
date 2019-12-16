@@ -3,6 +3,7 @@ import tensorflow_datasets as tfds
 import dataIO
 import matplotlib.pyplot as plt
 import numpy as np
+from tensorflow import keras
 
 padding = "SAME"
 batch_size = 1
@@ -43,6 +44,43 @@ data_in[:,:,:,1] = somae_data
 
 validation_data = data_in[:val_data_size,:,:,:]
 train_data = data_in[val_data_size:,:,:,:]
+
+class WeightedBinaryCrossEntropy(keras.losses.Loss):
+    """
+    Args:
+      pos_weight: Scalar to affect the positive labels of the loss function.
+      weight: Scalar to affect the entirety of the loss function.
+      from_logits: Whether to compute loss form logits or the probability.
+      reduction: Type of tf.keras.losses.Reduction to apply to loss.
+      name: Name of the loss function.
+    """
+    def __init__(self, pos_weight, weight, from_logits=False,
+                 reduction=keras.losses.Reduction.AUTO,
+                 name='weighted_binary_crossentropy'):
+        super(WeightedBinaryCrossEntropy, self).__init__(reduction=reduction,
+                                                         name=name)
+        self.pos_weight = pos_weight
+        self.weight = weight
+        self.from_logits = from_logits
+
+    def call(self, y_true, y_pred):
+        if not self.from_logits:
+            # Manually calculate the weighted cross entropy.
+            # Formula is qz * -log(sigmoid(x)) + (1 - z) * -log(1 - sigmoid(x))
+            # where z are labels, x is logits, and q is the weight.
+            # Since the values passed are from sigmoid (assuming in this case)
+            # sigmoid(x) will be replaced by y_pred
+
+            # qz * -log(sigmoid(x)) 1e-6 is added as an epsilon to stop passing a zero into the log
+            x_1 = y_true * self.pos_weight * -tf.math.log(y_pred + 1e-6)
+
+            # (1 - z) * -log(1 - sigmoid(x)). Epsilon is added to prevent passing a zero into the log
+            x_2 = (1 - y_true) * -tf.math.log(1 - y_pred + 1e-6)
+
+            return tf.add(x_1, x_2) * self.weight
+
+        # Use built in function
+        return tf.nn.weighted_cross_entropy_with_logits(y_true, y_pred, self.pos_weight) * self.weight
 
 def conv2d(inputs , filters):
     out = tf.nn.conv2d( inputs , filters , strides=1 , padding=padding )
@@ -102,6 +140,7 @@ weights = []
 for i in range( len( shapes ) ):
     weights.append( get_weight( shapes[ i ] , 'weight{}'.format( i ) ) )
 
+@tf.function
 def model( L11 ) :
     L12 = conv2d(L11, weights[0])
     L13 = conv2d(L12, weights[1])
@@ -144,11 +183,12 @@ def model( L11 ) :
 
     L17 = conv2d(L16, weights[22])
 
-    return tf.nn.softmax(L17)
+    return tf.nn.sigmoid(L17)
 
+w_loss = WeightedBinaryCrossEntropy(13, 1)
 
 def loss( pred , target ):
-    return tf.losses.categorical_crossentropy( target , pred )
+    return w_loss( target , pred )
 
 optimizer = tf.optimizers.Adam( learning_rate )
 
@@ -164,9 +204,12 @@ def predict_step( model, inputs):
     pred = model(inputs)
     return pred
 
+train_ids = np.random.permutation(train_data.shape[0])
+valid_ids = np.random.permutation(validation_data.shape[0])
+
 for e in range( epochs ):
     print("Epoch: " + str(e))
-    for k in range(train_data.shape[0]):
+    for k in train_ids:
         print(k)
 
         image = train_data[None, k,:,:,0,None]
@@ -185,24 +228,24 @@ for e in range( epochs ):
 
         train_step( model , image , mask )
 
-    for j in range(10):
+for j in valid_ids:
 
-        print(j)
+    print(j)
 
-        image = validation_data[None, j,:,:,0,None]
-        mask = validation_data[None,j,:,:,1,None]
+    image = validation_data[None, j,:,:,0,None]
+    mask = validation_data[None,j,:,:,1,None]
 
-        image = tf.convert_to_tensor( image , dtype=tf.float32 )
-        mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
+    image = tf.convert_to_tensor( image , dtype=tf.float32 )
+    mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
 
-        mask_pred = predict_step( model , image)
+    mask_pred = predict_step( model , image)
 
-        fig = plt.figure(figsize=(20, 12))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
-        ax = fig.add_subplot(1, 3, 1)
-        ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
-        ax = fig.add_subplot(1, 3, 2)
-        ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-        ax = fig.add_subplot(1, 3, 3)
-        ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-        plt.show()
+    fig = plt.figure(figsize=(20, 12))
+    fig.subplots_adjust(hspace=0.4, wspace=0.4)
+    ax = fig.add_subplot(1, 3, 1)
+    ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
+    ax = fig.add_subplot(1, 3, 2)
+    ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+    ax = fig.add_subplot(1, 3, 3)
+    ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+    plt.show()
