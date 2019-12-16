@@ -146,20 +146,24 @@ for e in range( epochs ):
 
         train_step( model , image , mask )
 
-    for j in range(validation_data.shape[0]):
-        print(j)
-        image = validation_data[None, k,:,:,0,None]
-        mask = validation_data[None,k,:,:,1,None]
+    for j in range(10):
 
-        # fig = plt.figure(figsize=(20, 12))
-        # fig.subplots_adjust(hspace=0.4, wspace=0.4)
-        # ax = fig.add_subplot(1, 2, 1)
-        # ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
-        # ax = fig.add_subplot(1, 2, 2)
-        # ax.imshow(np.reshape(mask[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-        # plt.show()
+        print(j)
+
+        image = validation_data[None, j,:,:,0,None]
+        mask = validation_data[None,j,:,:,1,None]
 
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
-        mask = tf.convert_to_tensor( mask , dtype=tf.float32 )
+        mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
 
-        predict_step( model , image , mask )
+        mask_pred = predict_step( model , image)
+
+        fig = plt.figure(figsize=(20, 12))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        ax = fig.add_subplot(1, 3, 1)
+        ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
+        ax = fig.add_subplot(1, 3, 2)
+        ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+        ax = fig.add_subplot(1, 3, 3)
+        ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+        plt.show()
