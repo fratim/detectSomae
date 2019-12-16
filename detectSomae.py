@@ -160,8 +160,8 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 def UNet(image_size, depth):
-    f = [16, 32, 64, 128, 256, 512, 1024]
-    # f = [16, 32, 64, 64,  128, 128, 256]
+    # f = [16, 32, 64, 128, 256, 512, 1024]
+    f = [16, 32, 64, 64,  128, 128, 256]
     inputs = keras.layers.Input((image_size, image_size, depth*2+1))
 
     p0 = inputs
@@ -174,7 +174,7 @@ def UNet(image_size, depth):
 
     bn = bottleneck(p6, f[6])
 
-    u0 = up_block(bn, c6, f[5]) #22 -> 44
+    u0 = up_block(bn, c6, f[5]) #11 -> 22
     u1 = up_block(u0, c5, f[4]) #22 -> 44
     u2 = up_block(u1, c4, f[3]) #44 -> 88
     u3 = up_block(u2, c3, f[2]) #88 -> 176
@@ -339,8 +339,8 @@ def predictZebrafinch():
     WriteH5File(somae_out,output_folder+"Zebrafinch-somae-dsp_8.h5","main")
 
 def main():
-    # TrainOnMouse()
-    predictZebrafinch()
+    TrainOnMouse()
+    # predictZebrafinch()
 
 if True == 1:
     main()
