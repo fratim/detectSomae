@@ -38,8 +38,6 @@ val_data_size = 64
 
 data_in = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],2), dtype=np.uint8)
 
-print("data_in shape: "  + str(data_in.shape))
-
 data_in[:,:,:,0] = seg_data
 data_in[:,:,:,1] = somae_data
 
@@ -64,46 +62,85 @@ def maxpool2(inputs):
 def maxpool4(inputs):
     return tf.nn.max_pool2d( inputs , ksize=4 , padding=padding , strides=4 )
 
-
-
 output_classes = 1
 initializer = tf.initializers.RandomNormal()
 def get_weight( shape , name ):
     return tf.Variable( initializer( shape ) , name=name , trainable=True , dtype=tf.float32 )
 
-filters = [4,8,8,4]
+filters = [1,64,64,128,128,256,256,512,512,1024,1024,512,512,512,256,256,256,128,128,128,64,64,64,1]
 
 shapes = [
-    [ 3, 3, 1,           filters[0]],      #input -> c1
+    [ 3, 3, filters[0],           filters[1]],      #L11 -> L12
+    [ 3, 3, filters[1],           filters[2]],      #L12 -> L13
+    [ 3, 3, filters[2],           filters[3]],      #L21 -> L22
+    [ 3, 3, filters[3],           filters[4]],      #L22 -> L23
+    [ 3, 3, filters[4],           filters[5]],      #L31 -> L32
+    [ 3, 3, filters[5],           filters[6]],      #L32 -> L33
+    [ 3, 3, filters[6],           filters[7]],      #L41 -> L42
+    [ 3, 3, filters[7],           filters[8]],      #L42 -> L43
+    [ 3, 3, filters[8],           filters[9]],      #L51 -> L52
+    [ 3, 3, filters[9],           filters[10]],     #L52 -> L53
 
-    [ 3, 3, filters[0],  filters[1]],      #p1 -> c2
+    [ 2, 2, filters[11],           filters[10]],     #L53 -> L44
+    [ 3, 3, filters[11],           filters[12]],     #L44 -> L45
+    [ 3, 3, filters[12],           filters[13]],     #L45 -> L46
+    [ 2, 2, filters[14],           filters[13]],     #L46 -> L34
+    [ 3, 3, filters[14],           filters[15]],     #L34 -> L35
+    [ 3, 3, filters[15],           filters[16]],     #L35 -> L36
+    [ 2, 2, filters[17],           filters[16]],     #L36 -> L24
+    [ 3, 3, filters[17],           filters[18]],     #L24 -> L25
+    [ 3, 3, filters[18],           filters[19]],     #L25 -> L26
+    [ 2, 2, filters[20],           filters[19]],     #L25 -> L14
+    [ 3, 3, filters[20],           filters[21]],     #L14 -> L15
+    [ 3, 3, filters[21],           filters[22]],     #L15 -> L16
 
-    [ 3, 3, filters[1],  filters[2]],      #c2 -> u1
-
-    [ 3, 3, filters[2],  filters[3]],      #u1 -> c3
-
-    [ 1, 1, filters[3],  output_classes ]  #c3 -> outp
+    [ 1, 1, filters[22],           filters[23]],     #L16 -> L17
 ]
 
 weights = []
 for i in range( len( shapes ) ):
     weights.append( get_weight( shapes[ i ] , 'weight{}'.format( i ) ) )
 
-def model( x ) :
-    print("x:" + str(x.shape))
-    c1 = conv2d(x, weights[0])
-    print("c1:" + str(c1.shape))
-    p1 = maxpool2(c1)
-    print("p1:" + str(p1.shape))
-    c2 = conv2d(p1, weights[1])
-    print("c2:" + str(c2.shape))
-    u1 = conv2d_T(c2, weights[2])
-    print("u1:" + str(u1.shape))
-    c3 = conv2d(u1, weights[3])
-    print("c3:" + str(c3.shape))
-    output = conv2d(c3, weights[4])
-    print("output:" + str(output.shape))
-    return tf.nn.softmax( output )
+def model( L11 ) :
+    L12 = conv2d(L11, weights[0])
+    L13 = conv2d(L12, weights[1])
+
+    L21 = maxpool2(L13)
+    L22 = conv2d(L21, weights[2])
+    L23 = conv2d(L22, weights[3])
+
+    L31 = maxpool2(L23)
+    L32 = conv2d(L31, weights[4])
+    L33 = conv2d(L32, weights[5])
+
+    L41 = maxpool2(L33)
+    L42 = conv2d(L41, weights[6])
+    L43 = conv2d(L42, weights[7])
+
+    L51 = maxpool2(L43)
+    L52 = conv2d(L51, weights[8])
+    L53 = conv2d(L52, weights[9])
+
+    L44 = conv2d_T(L53, weights[10])
+    # L44 = tf.concat([L43,L44_],axis=3)
+    L45 = conv2d(L44, weights[11])
+    L46 = conv2d(L45, weights[12])
+
+    L34 = conv2d_T(L46, weights[13])
+    L35 = conv2d(L34, weights[14])
+    L36 = conv2d(L35, weights[15])
+
+    L24 = conv2d_T(L36, weights[16])
+    L25 = conv2d(L24, weights[17])
+    L26 = conv2d(L25, weights[18])
+
+    L14 = conv2d_T(L26, weights[19])
+    L15 = conv2d(L14, weights[20])
+    L16 = conv2d(L15, weights[21])
+
+    L17 = conv2d(L16, weights[22])
+
+    return tf.nn.softmax(L17)
 
 
 def loss( pred , target ):
@@ -131,8 +168,6 @@ for e in range( epochs ):
         image = train_data[None, k,:,:,0,None]
         mask = train_data[None,k,:,:,1,None]
 
-        print(image.shape)
-        print(mask.shape)
         # fig = plt.figure(figsize=(20, 12))
         # fig.subplots_adjust(hspace=0.4, wspace=0.4)
         # ax = fig.add_subplot(1, 2, 1)
