@@ -20,7 +20,7 @@ Zebrafinch/*.h5
 Mouse/images/*
 Mouse/images_cut/*
 logs/*
-
+ckpt*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

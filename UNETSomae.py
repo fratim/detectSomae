@@ -4,6 +4,9 @@ import dataIO
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow import keras
+import csv
+from datetime import datetime
+
 
 padding = "SAME"
 batch_size = 8
@@ -101,11 +104,6 @@ def maxpool2(inputs):
 def maxpool4(inputs):
     return tf.nn.max_pool2d( inputs , ksize=4 , padding=padding , strides=4 )
 
-output_classes = 1
-initializer = tf.initializers.RandomNormal()
-def get_weight( shape , name ):
-    return tf.Variable( initializer( shape ) , name=name , trainable=True , dtype=tf.float32 )
-
 # filters = [1,64,64,128,128,256,256,512,512,1024,1024,512,512,512,256,256,256,128,128,128,64,64,64,1]
 # filters = [1,64,128,256,512,1024]
 filters = [1,16,32,54,128,256]
@@ -138,52 +136,71 @@ shapes = [
     [ 1, 1, filters[1],           filters[0]],     #L16 -> L17
 ]
 
-weights = []
-for i in range( len( shapes ) ):
-    weights.append( get_weight( shapes[ i ] , 'weight{}'.format( i ) ) )
+class model_weights:
+    def __init__(self, shapes):
+        self.values = []
+        self.checkpoint_path = './ckpt_'+ datetime.now().strftime("%Y%m%d-%H%M%S")+'/'
+        initializer = tf.initializers.RandomNormal()
+        def get_weight( shape , name ):
+            return tf.Variable( initializer( shape ) , name=name , trainable=True , dtype=tf.float32 )
+
+        for i in range( len( shapes ) ):
+            self.values.append( get_weight( shapes[ i ] , 'weight{}'.format( i ) ) )
+
+        self.ckpt = tf.train.Checkpoint(**{f'values{i}': v for i, v in enumerate(self.values)})
+
+    def saveWeights(self):
+        self.ckpt.save(self.checkpoint_path)
+
+    def restoreWeights(self, checkpoint_directory):
+        status = self.ckpt.restore(tf.train.latest_checkpoint(checkpoint_directory))
+        status.assert_consumed()  # Optional check
+
+weights = model_weights(shapes)
+# weights.restoreWeights()
 
 @tf.function
 def model( L11 ) :
-    L12 = conv2d(L11, weights[0])
-    L13 = conv2d(L12, weights[1])
+    L12 = conv2d(L11, weights.values[0])
+    L13 = conv2d(L12, weights.values[1])
 
     L21 = maxpool2(L13)
-    L22 = conv2d(L21, weights[2])
-    L23 = conv2d(L22, weights[3])
+    L22 = conv2d(L21, weights.values[2])
+    L23 = conv2d(L22, weights.values[3])
 
     L31 = maxpool2(L23)
-    L32 = conv2d(L31, weights[4])
-    L33 = conv2d(L32, weights[5])
+    L32 = conv2d(L31, weights.values[4])
+    L33 = conv2d(L32, weights.values[5])
 
     L41 = maxpool2(L33)
-    L42 = conv2d(L41, weights[6])
-    L43 = conv2d(L42, weights[7])
+    L42 = conv2d(L41, weights.values[6])
+    L43 = conv2d(L42, weights.values[7])
 
     L51 = maxpool2(L43)
-    L52 = conv2d(L51, weights[8])
-    L53 = conv2d(L52, weights[9])
+    L52 = conv2d(L51, weights.values[8])
+    L53 = conv2d(L52, weights.values[9])
 
-    L44_ = conv2d_T(L53, weights[10])
+    L44_ = conv2d_T(L53, weights.values[10])
     L44 = tf.concat([L43,L44_],axis=3)
-    L45 = conv2d(L44, weights[11])
-    L46 = conv2d(L45, weights[12])
+    L45 = conv2d(L44, weights.values[11])
+    L46 = conv2d(L45, weights.values[12])
 
-    L34_ = conv2d_T(L46, weights[13])
+    L34_ = conv2d_T(L46, weights.values[13])
     L34 = tf.concat([L33,L34_],axis=3)
-    L35 = conv2d(L34, weights[14])
-    L36 = conv2d(L35, weights[15])
+    L35 = conv2d(L34, weights.values[14])
+    L36 = conv2d(L35, weights.values[15])
 
-    L24_ = conv2d_T(L36, weights[16])
+    L24_ = conv2d_T(L36, weights.values[16])
     L24 = tf.concat([L23,L24_],axis=3)
-    L25 = conv2d(L24, weights[17])
-    L26 = conv2d(L25, weights[18])
+    L25 = conv2d(L24, weights.values[17])
+    L26 = conv2d(L25, weights.values[18])
 
-    L14_ = conv2d_T(L26, weights[19])
+    L14_ = conv2d_T(L26, weights.values[19])
     L14 = tf.concat([L13,L14_],axis=3)
-    L15 = conv2d(L14, weights[20])
-    L16 = conv2d(L15, weights[21])
+    L15 = conv2d(L14, weights.values[20])
+    L16 = conv2d(L15, weights.values[21])
 
-    L17 = conv2d(L16, weights[22])
+    L17 = conv2d(L16, weights.values[22])
 
     return tf.nn.sigmoid(L17)
 
@@ -200,8 +217,8 @@ def train_step( model, inputs , gt ):
     with tf.GradientTape() as tape:
         pred = model(inputs)
         current_loss = loss( gt, pred)
-    grads = tape.gradient( current_loss , weights )
-    optimizer.apply_gradients( zip( grads , weights ) )
+    grads = tape.gradient( current_loss , weights.values )
+    optimizer.apply_gradients( zip( grads , weights.values ) )
     train_loss = tf.reduce_mean( current_loss )
     train_acc.update_state(tf.reshape(gt,[-1]), tf.reshape(pred,[-1]))
 
@@ -240,6 +257,7 @@ for e in range( epochs ):
 
         count += 1
 
+    val_loss_best = 1000000000
     val_loss = 0
     for j in valid_ids:
         image = validation_data[None, j,:,:,0,None]
@@ -248,6 +266,11 @@ for e in range( epochs ):
         mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
         _, cur_loss = predict_step(model , image, mask_gt)
         val_loss+=cur_loss
+
+    if val_loss<val_loss_best:
+        val_loss_best = val_loss
+        weights.saveWeights()
+        print("Weights saved ------------------")
 
     val_loss = val_loss.numpy()/len(valid_ids)
     print("Valid loss: " + str(val_loss))
