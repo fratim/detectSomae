@@ -6,7 +6,7 @@ import numpy as np
 from tensorflow import keras
 
 padding = "SAME"
-batch_size = 1
+batch_size = 8
 learning_rate = 0.001
 image_size = 352
 epochs = 5
@@ -106,34 +106,36 @@ initializer = tf.initializers.RandomNormal()
 def get_weight( shape , name ):
     return tf.Variable( initializer( shape ) , name=name , trainable=True , dtype=tf.float32 )
 
-filters = [1,64,64,128,128,256,256,512,512,1024,1024,512,512,512,256,256,256,128,128,128,64,64,64,1]
+# filters = [1,64,64,128,128,256,256,512,512,1024,1024,512,512,512,256,256,256,128,128,128,64,64,64,1]
+# filters = [1,64,128,256,512,1024]
+filters = [1,16,32,54,128,256]
 
 shapes = [
     [ 3, 3, filters[0],           filters[1]],      #L11 -> L12
-    [ 3, 3, filters[1],           filters[2]],      #L12 -> L13
-    [ 3, 3, filters[2],           filters[3]],      #L21 -> L22
-    [ 3, 3, filters[3],           filters[4]],      #L22 -> L23
-    [ 3, 3, filters[4],           filters[5]],      #L31 -> L32
-    [ 3, 3, filters[5],           filters[6]],      #L32 -> L33
-    [ 3, 3, filters[6],           filters[7]],      #L41 -> L42
-    [ 3, 3, filters[7],           filters[8]],      #L42 -> L43
-    [ 3, 3, filters[8],           filters[9]],      #L51 -> L52
-    [ 3, 3, filters[9],           filters[10]],     #L52 -> L53
+    [ 3, 3, filters[1],           filters[1]],      #L12 -> L13
+    [ 3, 3, filters[1],           filters[2]],      #L21 -> L22
+    [ 3, 3, filters[2],           filters[2]],      #L22 -> L23
+    [ 3, 3, filters[2],           filters[3]],      #L31 -> L32
+    [ 3, 3, filters[3],           filters[3]],      #L32 -> L33
+    [ 3, 3, filters[3],           filters[4]],      #L41 -> L42
+    [ 3, 3, filters[4],           filters[4]],      #L42 -> L43
+    [ 3, 3, filters[4],           filters[5]],      #L51 -> L52
+    [ 3, 3, filters[5],           filters[5]],     #L52 -> L53
 
-    [ 2, 2, filters[11],           filters[10]],     #L53 -> L44
-    [ 3, 3, 2*filters[11],         filters[12]],     #L44 -> L45
-    [ 3, 3, filters[12],           filters[13]],     #L45 -> L46
-    [ 2, 2, filters[14],           filters[13]],     #L46 -> L34
-    [ 3, 3, 2*filters[14],         filters[15]],     #L34 -> L35
-    [ 3, 3, filters[15],           filters[16]],     #L35 -> L36
-    [ 2, 2, filters[17],           filters[16]],     #L36 -> L24
-    [ 3, 3, 2*filters[17],         filters[18]],     #L24 -> L25
-    [ 3, 3, filters[18],           filters[19]],     #L25 -> L26
-    [ 2, 2, filters[20],           filters[19]],     #L25 -> L14
-    [ 3, 3, 2*filters[20],           filters[21]],     #L14 -> L15
-    [ 3, 3, filters[21],           filters[22]],     #L15 -> L16
+    [ 2, 2, filters[4],           filters[5]],     #L53 -> L44
+    [ 3, 3, 2*filters[4],         filters[4]],     #L44 -> L45
+    [ 3, 3, filters[4],           filters[4]],     #L45 -> L46
+    [ 2, 2, filters[3],           filters[4]],     #L46 -> L34
+    [ 3, 3, 2*filters[3],         filters[3]],     #L34 -> L35
+    [ 3, 3, filters[3],           filters[3]],     #L35 -> L36
+    [ 2, 2, filters[2],           filters[3]],     #L36 -> L24
+    [ 3, 3, 2*filters[2],         filters[2]],     #L24 -> L25
+    [ 3, 3, filters[2],           filters[2]],     #L25 -> L26
+    [ 2, 2, filters[1],           filters[2]],     #L25 -> L14
+    [ 3, 3, 2*filters[1],           filters[1]],     #L14 -> L15
+    [ 3, 3, filters[1],           filters[1]],     #L15 -> L16
 
-    [ 1, 1, filters[22],           filters[23]],     #L16 -> L17
+    [ 1, 1, filters[1],           filters[0]],     #L16 -> L17
 ]
 
 weights = []
@@ -187,33 +189,41 @@ def model( L11 ) :
 
 w_loss = WeightedBinaryCrossEntropy(13, 1)
 
-def loss( pred , target ):
-    return w_loss( target , pred )
+def loss( gt , pred ):
+    return w_loss( gt , pred )
 
 optimizer = tf.optimizers.Adam( learning_rate )
 
-def train_step( model, inputs , outputs ):
+def train_step( model, inputs , gt ):
     with tf.GradientTape() as tape:
         pred = model(inputs)
-        current_loss = loss( pred, outputs)
+        current_loss = loss( gt, pred)
     grads = tape.gradient( current_loss , weights )
     optimizer.apply_gradients( zip( grads , weights ) )
-    print( tf.reduce_mean( current_loss ) )
+    train_loss = tf.reduce_mean( current_loss )
+    return train_loss
 
-def predict_step( model, inputs):
+def predict_step( model, inputs, gt):
     pred = model(inputs)
-    return pred
+    current_loss = loss( gt, pred)
+    val_loss = tf.reduce_mean( current_loss )
+    return pred, val_loss
 
 train_ids = np.random.permutation(train_data.shape[0])
 valid_ids = np.random.permutation(validation_data.shape[0])
 
 for e in range( epochs ):
     print("Epoch: " + str(e))
+    count = 0
+    train_loss = 0
     for k in train_ids:
-        print(k)
 
-        image = train_data[None, k,:,:,0,None]
-        mask = train_data[None,k,:,:,1,None]
+        if count%50 == 0 and count>0:
+            print(str(count) + "/" + str(len(train_ids)) )
+            print("Train loss: " + str(train_loss/count))
+
+        image = train_data[k:k+batch_size,:,:,0,None]
+        mask = train_data[k:k+batch_size,:,:,1,None]
 
         # fig = plt.figure(figsize=(20, 12))
         # fig.subplots_adjust(hspace=0.4, wspace=0.4)
@@ -224,28 +234,39 @@ for e in range( epochs ):
         # plt.show()
 
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
-        mask = tf.convert_to_tensor( mask , dtype=tf.float32 )
+        mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
 
-        train_step( model , image , mask )
+        curr_loss = train_step( model , image , mask_gt )
+        train_loss += curr_loss
 
-for j in valid_ids:
+        count += 1
 
-    print(j)
+    val_loss = 0
+    for j in valid_ids:
+        image = validation_data[None, j,:,:,0,None]
+        mask = validation_data[None,j,:,:,1,None]
+        image = tf.convert_to_tensor( image , dtype=tf.float32 )
+        mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
+        _, cur_loss = predict_step(model , image, mask_gt)
+        val_loss+=cur_loss
 
-    image = validation_data[None, j,:,:,0,None]
-    mask = validation_data[None,j,:,:,1,None]
+    val_loss = val_loss/len(valid_ids)
+    print("Validation loss is: " + str(val_loss))
 
-    image = tf.convert_to_tensor( image , dtype=tf.float32 )
-    mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
+    for j in valid_ids[::5]:
 
-    mask_pred = predict_step( model , image)
+        image = validation_data[None, j,:,:,0,None]
+        mask = validation_data[None,j,:,:,1,None]
+        image = tf.convert_to_tensor( image , dtype=tf.float32 )
+        mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
+        mask_pred, _ = predict_step(model , image, mask_gt)
 
-    fig = plt.figure(figsize=(20, 12))
-    fig.subplots_adjust(hspace=0.4, wspace=0.4)
-    ax = fig.add_subplot(1, 3, 1)
-    ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
-    ax = fig.add_subplot(1, 3, 2)
-    ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-    ax = fig.add_subplot(1, 3, 3)
-    ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-    plt.show()
+        fig = plt.figure(figsize=(20, 12))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        ax = fig.add_subplot(1, 3, 1)
+        ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
+        ax = fig.add_subplot(1, 3, 2)
+        ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+        ax = fig.add_subplot(1, 3, 3)
+        ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
+        plt.show()
