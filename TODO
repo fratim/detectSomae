@@ -1,6 +1,9 @@
 Question:
 1. Do we have somae data for the mouse in a higher resolution?
 2. What to do about gaps in the segmentation?
+3. Check for first few slices (wrong annotation?) (also do so for last slices)
+4. use tf.dataset
+
 
 Idea:
 1. Implement more data augmentation

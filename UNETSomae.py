@@ -3,16 +3,16 @@ import tensorflow_datasets as tfds
 import dataIO
 import matplotlib.pyplot as plt
 import numpy as np
-from tensorflow import keras
 import csv
 from datetime import datetime
 
 
 padding = "SAME"
 batch_size = 8
+depth = 4
 learning_rate = 0.001
 image_size = 352
-epochs = 5
+epochs = 100
 
 #Mouse
 seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
@@ -40,25 +40,70 @@ somae_data = somae_data[:,:image_size,:image_size]
 # find maximum z coordinate
 val_data_size = 64
 
-data_in = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],2), dtype=np.uint8)
+seg_deep = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],depth*2+1), dtype=np.uint8)
 
-data_in[:,:,:,0] = seg_data
-data_in[:,:,:,1] = somae_data
+seg_deep[:,:,:,depth]=seg_data
 
-validation_data = data_in[:val_data_size,:,:,:]
-train_data = data_in[val_data_size:,:,:,:]
+for d in range(1,depth+1):
+    seg_deep[:-d,:,:,depth+d]=seg_data[d:,:,:]
+    seg_deep[d:,:,:,depth-d]=seg_data[:-d,:,:]
 
-class WeightedBinaryCrossEntropy(keras.losses.Loss):
+
+fig = plt.figure(figsize=(20, 12))
+fig.subplots_adjust(hspace=0.4, wspace=0.4)
+
+item = 0
+# 765-772 dead
+# 0-3 dead
+
+ax = fig.add_subplot(2, 5, 1)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth-4], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 2)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth-3], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 3)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth-2], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 4)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth-1], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 5)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 6)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth+1], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 7)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth+2], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 8)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth+3], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 9)
+ax.imshow(np.reshape(seg_deep[item,:,:,depth+4], (image_size, image_size)), cmap="gray")
+ax = fig.add_subplot(2, 5, 10)
+ax.imshow(np.reshape(somae_data[item,:,:], (image_size, image_size)), cmap="gray")
+plt.show()
+
+valid_seg = seg_data[:val_data_size,:,:]
+valid_mask = somae_data[:val_data_size,:,:]
+train_seg = seg_data[val_data_size:,:,:]
+train_mask = somae_data[val_data_size:,:,:]
+
+
+# shuffle data
+valid_ids = np.random.permutation(valid_seg.shape[0])
+train_ids = np.random.permutation(train_seg.shape[0])
+
+valid_seg[:,:,:] = valid_seg[valid_ids,:,:]
+valid_mask[:,:,:] = valid_mask[valid_ids,:,:]
+train_seg[:,:,:] = train_seg[train_ids,:,:]
+train_mask[:,:,:] = train_mask[train_ids,:,:]
+
+class WeightedBinaryCrossEntropy(tf.losses.Loss):
     """
     Args:
       pos_weight: Scalar to affect the positive labels of the loss function.
       weight: Scalar to affect the entirety of the loss function.
       from_logits: Whether to compute loss form logits or the probability.
-      reduction: Type of tf.keras.losses.Reduction to apply to loss.
+      reduction: Type of tf.losses.Reduction to apply to loss.
       name: Name of the loss function.
     """
     def __init__(self, pos_weight, weight, from_logits=False,
-                 reduction=keras.losses.Reduction.AUTO,
+                 reduction=tf.losses.Reduction.AUTO,
                  name='weighted_binary_crossentropy'):
         super(WeightedBinaryCrossEntropy, self).__init__(reduction=reduction,
                                                          name=name)
@@ -104,7 +149,6 @@ def maxpool2(inputs):
 def maxpool4(inputs):
     return tf.nn.max_pool2d( inputs , ksize=4 , padding=padding , strides=4 )
 
-# filters = [1,64,64,128,128,256,256,512,512,1024,1024,512,512,512,256,256,256,128,128,128,64,64,64,1]
 # filters = [1,64,128,256,512,1024]
 filters = [1,16,32,54,128,256]
 
@@ -210,8 +254,11 @@ def loss( gt , pred ):
     return w_loss( gt , pred )
 
 optimizer = tf.optimizers.Adam( learning_rate )
+
 train_acc = tf.metrics.BinaryAccuracy()
 valid_acc = tf.metrics.BinaryAccuracy()
+train_loss = tf.metrics.Mean()
+valid_loss = tf.metrics.Mean()
 
 def train_step( model, inputs , gt ):
     with tf.GradientTape() as tape:
@@ -219,80 +266,65 @@ def train_step( model, inputs , gt ):
         current_loss = loss( gt, pred)
     grads = tape.gradient( current_loss , weights.values )
     optimizer.apply_gradients( zip( grads , weights.values ) )
-    train_loss = tf.reduce_mean( current_loss )
-    train_acc.update_state(tf.reshape(gt,[-1]), tf.reshape(pred,[-1]))
-
-    return train_loss
+    train_loss.update_state(current_loss)
+    train_acc.update_state(gt, pred)
 
 def predict_step( model, inputs, gt):
     pred = model(inputs)
     current_loss = loss( gt, pred)
-    val_loss = tf.reduce_mean( current_loss )
-    valid_acc.update_state(tf.reshape(gt,[-1]), tf.reshape(pred,[-1]))
+    valid_loss.update_state(current_loss)
+    valid_acc.update_state(gt, pred)
 
-    return pred, val_loss
+    return pred
 
-train_ids = np.random.permutation(train_data.shape[0])
-valid_ids = np.random.permutation(validation_data.shape[0])
+current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+valid_log_dir = 'logs/gradient_tape/' + current_time + '/valid'
+train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+valid_summary_writer = tf.summary.create_file_writer(valid_log_dir)
 
-for e in range( epochs ):
-    print("Epoch: " + str(e))
-    count = 0
-    train_loss = 0
-    for k in train_ids:
+valid_loss_best = 1000000000
 
-        if count%50 == 0 and count>0:
-            print(str(count) + "/" + str(len(train_ids)) )
-            print("Train loss: " + str(train_loss.numpy()/count))
-            print("Train accu: " + str(train_acc.result().numpy()))
+for epoch in range( epochs ):
 
-        image = train_data[k:k+batch_size,:,:,0,None]
-        mask = train_data[k:k+batch_size,:,:,1,None]
+    with train_summary_writer.as_default():
+        tf.summary.scalar('loss', train_loss.result(), step=epoch)
+        tf.summary.scalar('accuracy', train_acc.result(), step=epoch)
+    with valid_summary_writer.as_default():
+        tf.summary.scalar('loss', valid_loss.result(), step=epoch)
+        tf.summary.scalar('accuracy', valid_acc.result(), step=epoch)
+    train_acc.reset_states()
+    valid_acc.reset_states()
+    train_loss.reset_states()
+    valid_loss.reset_states()
+    print("---------------------")
+    print("Epoch: " + str(epoch))
 
+    for k in np.arange(0,train_seg.shape[0],batch_size):
+
+        image = train_seg[k:k+batch_size,:,:,None]
+        mask = train_mask[k:k+batch_size,:,:,None]
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
         mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
+        train_step( model , image , mask_gt )
 
-        curr_loss = train_step( model , image , mask_gt )
-        train_loss += curr_loss
+    for j in np.arange(0,valid_seg.shape[0],batch_size):
 
-        count += 1
-
-    val_loss_best = 1000000000
-    val_loss = 0
-    for j in valid_ids:
-        image = validation_data[None, j,:,:,0,None]
-        mask = validation_data[None,j,:,:,1,None]
+        image = valid_seg[j:j+batch_size,:,:,None]
+        mask = valid_mask[j:j+batch_size,:,:,None]
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
         mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
-        _, cur_loss = predict_step(model , image, mask_gt)
-        val_loss+=cur_loss
+        mask_pred = predict_step(model , image, mask_gt)
+        if epoch%15==0:
+            with valid_summary_writer.as_default():
+                tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([image, mask_gt, mask_pred],axis=1), step=epoch, max_outputs=5)
 
-    if val_loss<val_loss_best:
-        val_loss_best = val_loss
+    if valid_loss.result().numpy()<valid_loss_best:
+        valid_loss_best = valid_loss.result().numpy()
         weights.saveWeights()
         print("Weights saved ------------------")
 
-    val_loss = val_loss.numpy()/len(valid_ids)
-    print("Valid loss: " + str(val_loss))
+    print("Train loss: " + str(train_loss.result().numpy()))
+    print("Train accu: " + str(train_acc.result().numpy()))
+    print("Valid loss: " + str(valid_loss.result().numpy()))
     print("Valid accu: " + str(valid_acc.result().numpy()))
-
-    train_acc.reset_states()
-    valid_acc.reset_states()
-
-# for j in valid_ids[::5]:
-#
-#     image = validation_data[None, j,:,:,0,None]
-#     mask = validation_data[None,j,:,:,1,None]
-#     image = tf.convert_to_tensor( image , dtype=tf.float32 )
-#     mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
-#     mask_pred, _ = predict_step(model , image, mask_gt)
-#
-#     fig = plt.figure(figsize=(20, 12))
-#     fig.subplots_adjust(hspace=0.4, wspace=0.4)
-#     ax = fig.add_subplot(1, 3, 1)
-#     ax.imshow(np.reshape(image[0,:,:,0], (image_size, image_size)), cmap="gray")
-#     ax = fig.add_subplot(1, 3, 2)
-#     ax.imshow(np.reshape(mask_gt[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-#     ax = fig.add_subplot(1, 3, 3)
-#     ax.imshow(np.reshape(mask_pred[0,:,:,0]*255, (image_size, image_size)), cmap="gray")
-#     plt.show()
