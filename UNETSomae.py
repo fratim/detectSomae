@@ -15,18 +15,11 @@ image_size = 352
 epochs = 100
 
 #Mouse
-seg_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/seg_Mouse_773x832x832.h5"
-somae_filepath = "/home/frtim/Documents/Code/SomaeDetection/Mouse/somae_reduced_cut_Mouse_773x832x832.h5"
+seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/seg_Mouse_762x832x832.h5"
+somae_filepath =    "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/somae_Mouse_762x832x832.h5"
 
 seg_data = dataIO.ReadH5File(seg_filepath, [1])
-somae_raw = dataIO.ReadH5File(somae_filepath, [1])
-
-z_max = min(seg_data.shape[0],somae_raw.shape[0])
-
-somae_data = np.zeros((z_max,seg_data.shape[1],seg_data.shape[2]),dtype=np.uint64)
-somae_data[:,:somae_raw.shape[1],:somae_raw.shape[2]]=somae_raw[:z_max,:,:]
-
-seg_data = seg_data[:,:,:z_max]
+somae_data = dataIO.ReadH5File(somae_filepath, [1])
 
 seg_data[seg_data>0]=1
 somae_data[somae_data>0]=1
@@ -47,9 +40,6 @@ seg_deep[:,:,:,depth]=seg_data
 for d in range(1,depth+1):
     seg_deep[:-d,:,:,depth+d]=seg_data[d:,:,:]
     seg_deep[d:,:,:,depth-d]=seg_data[:-d,:,:]
-
-# 765-772 dead
-# 0-3 dead
 
 valid_seg = seg_deep[:val_data_size,:,:,:]
 valid_mask = somae_data[:val_data_size,:,:]
