@@ -48,39 +48,12 @@ for d in range(1,depth+1):
     seg_deep[:-d,:,:,depth+d]=seg_data[d:,:,:]
     seg_deep[d:,:,:,depth-d]=seg_data[:-d,:,:]
 
-
-fig = plt.figure(figsize=(20, 12))
-fig.subplots_adjust(hspace=0.4, wspace=0.4)
-
-item = 0
 # 765-772 dead
 # 0-3 dead
 
-ax = fig.add_subplot(2, 5, 1)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth-4], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 2)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth-3], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 3)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth-2], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 4)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth-1], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 5)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 6)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth+1], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 7)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth+2], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 8)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth+3], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 9)
-ax.imshow(np.reshape(seg_deep[item,:,:,depth+4], (image_size, image_size)), cmap="gray")
-ax = fig.add_subplot(2, 5, 10)
-ax.imshow(np.reshape(somae_data[item,:,:], (image_size, image_size)), cmap="gray")
-plt.show()
-
-valid_seg = seg_data[:val_data_size,:,:]
+valid_seg = seg_deep[:val_data_size,:,:,:]
 valid_mask = somae_data[:val_data_size,:,:]
-train_seg = seg_data[val_data_size:,:,:]
+train_seg = seg_deep[val_data_size:,:,:,:]
 train_mask = somae_data[val_data_size:,:,:]
 
 
@@ -88,9 +61,9 @@ train_mask = somae_data[val_data_size:,:,:]
 valid_ids = np.random.permutation(valid_seg.shape[0])
 train_ids = np.random.permutation(train_seg.shape[0])
 
-valid_seg[:,:,:] = valid_seg[valid_ids,:,:]
+valid_seg[:,:,:] = valid_seg[valid_ids,:,:,:]
 valid_mask[:,:,:] = valid_mask[valid_ids,:,:]
-train_seg[:,:,:] = train_seg[train_ids,:,:]
+train_seg[:,:,:] = train_seg[train_ids,:,:,:]
 train_mask[:,:,:] = train_mask[train_ids,:,:]
 
 class WeightedBinaryCrossEntropy(tf.losses.Loss):
@@ -150,7 +123,7 @@ def maxpool4(inputs):
     return tf.nn.max_pool2d( inputs , ksize=4 , padding=padding , strides=4 )
 
 # filters = [1,64,128,256,512,1024]
-filters = [1,16,32,54,128,256]
+filters = [depth*2+1,16,32,54,128,256,1]
 
 shapes = [
     [ 3, 3, filters[0],           filters[1]],      #L11 -> L12
@@ -177,7 +150,7 @@ shapes = [
     [ 3, 3, 2*filters[1],           filters[1]],     #L14 -> L15
     [ 3, 3, filters[1],           filters[1]],     #L15 -> L16
 
-    [ 1, 1, filters[1],           filters[0]],     #L16 -> L17
+    [ 1, 1, filters[1],           filters[6]],     #L16 -> L17
 ]
 
 class model_weights:
@@ -302,7 +275,7 @@ for epoch in range( epochs ):
 
     for k in np.arange(0,train_seg.shape[0],batch_size):
 
-        image = train_seg[k:k+batch_size,:,:,None]
+        image = train_seg[k:k+batch_size,:,:,:]
         mask = train_mask[k:k+batch_size,:,:,None]
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
         mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
@@ -310,14 +283,14 @@ for epoch in range( epochs ):
 
     for j in np.arange(0,valid_seg.shape[0],batch_size):
 
-        image = valid_seg[j:j+batch_size,:,:,None]
+        image = valid_seg[j:j+batch_size,:,:,:]
         mask = valid_mask[j:j+batch_size,:,:,None]
         image = tf.convert_to_tensor( image , dtype=tf.float32 )
         mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
         mask_pred = predict_step(model , image, mask_gt)
         if epoch%15==0:
             with valid_summary_writer.as_default():
-                tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([image, mask_gt, mask_pred],axis=1), step=epoch, max_outputs=5)
+                tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([tf.expand_dims(image[:,:,:,depth],3), mask_gt, mask_pred],axis=1), step=epoch, max_outputs=5)
 
     if valid_loss.result().numpy()<valid_loss_best:
         valid_loss_best = valid_loss.result().numpy()
