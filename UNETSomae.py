@@ -112,8 +112,8 @@ def maxpool2(inputs):
 def maxpool4(inputs):
     return tf.nn.max_pool2d( inputs , ksize=4 , padding=padding , strides=4 )
 
-# filters = [1,64,128,256,512,1024]
-filters = [depth*2+1,16,32,54,128,256,1]
+filters = [depth*2+1,64,128,256,512,1024,1]
+# filters = [depth*2+1,16,32,54,128,256,1]
 
 shapes = [
     [ 3, 3, filters[0],           filters[1]],      #L11 -> L12
@@ -125,22 +125,22 @@ shapes = [
     [ 3, 3, filters[3],           filters[4]],      #L41 -> L42
     [ 3, 3, filters[4],           filters[4]],      #L42 -> L43
     [ 3, 3, filters[4],           filters[5]],      #L51 -> L52
-    [ 3, 3, filters[5],           filters[5]],     #L52 -> L53
+    [ 3, 3, filters[5],           filters[5]],      #L52 -> L53
 
-    [ 2, 2, filters[4],           filters[5]],     #L53 -> L44
-    [ 3, 3, 2*filters[4],         filters[4]],     #L44 -> L45
-    [ 3, 3, filters[4],           filters[4]],     #L45 -> L46
-    [ 2, 2, filters[3],           filters[4]],     #L46 -> L34
-    [ 3, 3, 2*filters[3],         filters[3]],     #L34 -> L35
-    [ 3, 3, filters[3],           filters[3]],     #L35 -> L36
-    [ 2, 2, filters[2],           filters[3]],     #L36 -> L24
-    [ 3, 3, 2*filters[2],         filters[2]],     #L24 -> L25
-    [ 3, 3, filters[2],           filters[2]],     #L25 -> L26
-    [ 2, 2, filters[1],           filters[2]],     #L25 -> L14
-    [ 3, 3, 2*filters[1],           filters[1]],     #L14 -> L15
-    [ 3, 3, filters[1],           filters[1]],     #L15 -> L16
+    [ 2, 2, filters[4],           filters[5]],      #L53 -> L44
+    [ 3, 3, 2*filters[4],         filters[4]],      #L44 -> L45
+    [ 3, 3, filters[4],           filters[4]],      #L45 -> L46
+    [ 2, 2, filters[3],           filters[4]],      #L46 -> L34
+    [ 3, 3, 2*filters[3],         filters[3]],      #L34 -> L35
+    [ 3, 3, filters[3],           filters[3]],      #L35 -> L36
+    [ 2, 2, filters[2],           filters[3]],      #L36 -> L24
+    [ 3, 3, 2*filters[2],         filters[2]],      #L24 -> L25
+    [ 3, 3, filters[2],           filters[2]],      #L25 -> L26
+    [ 2, 2, filters[1],           filters[2]],      #L25 -> L14
+    [ 3, 3, 2*filters[1],         filters[1]],      #L14 -> L15
+    [ 3, 3, filters[1],           filters[1]],      #L15 -> L16
 
-    [ 1, 1, filters[1],           filters[6]],     #L16 -> L17
+    [ 1, 1, filters[1],           filters[6]],      #L16 -> L17
 ]
 
 class model_weights:
