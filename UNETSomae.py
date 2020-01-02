@@ -112,8 +112,8 @@ def maxpool2(inputs):
 def maxpool4(inputs):
     return tf.nn.max_pool2d( inputs , ksize=4 , padding=padding , strides=4 )
 
-filters = [depth*2+1,64,128,256,512,1024,1]
-# filters = [depth*2+1,16,32,54,128,256,1]
+# filters = [depth*2+1,64,128,256,512,1024,1]
+filters = [depth*2+1,16,32,54,128,256,1]
 
 shapes = [
     [ 3, 3, filters[0],           filters[1]],      #L11 -> L12
