@@ -72,8 +72,8 @@ res=[20,18,18]; # resolution of the data
 data_path = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
 
 sample_name= "Zebrafinch-seg-dsp_8"
-compare= "Zebrafinch-somae_new-dsp_8"
-compare2= "Zebrafinch-somae-dsp_8"
+compare= "Zebrafinch-somae_new_refined-dsp_8"
+compare2= "Zebrafinch-somae_refined-dsp_8"
 
 # sample_name= "seg_Mouse_762x832x832"
 # compare= "somae_pred_Mouse"

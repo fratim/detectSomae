@@ -3,43 +3,48 @@ import numpy as np
 from dataIO import *
 from numba import njit
 
-# #compute the connected Com ponent labels
-# def computeConnectedComp26(labels):
-#     connectivity = 26 # only 26, 18, and 6 are allowed
-#     cc_labels = cc3d.connected_components(labels, connectivity=connectivity)
+#compute the connected Com ponent labels
+def computeConnectedComp26(labels):
+    connectivity = 26 # only 26, 18, and 6 are allowed
+    cc_labels = cc3d.connected_components(labels, connectivity=connectivity)
+
+    n_comp = np.max(cc_labels) + 1
+
+    return cc_labels, n_comp
+
+# @njit
+def evaluateLabels(cc_labels, somae_raw, n_comp):
+
+    items_of_component = dict()
+    label_to_cclabel = dict()
+    cc_labels_known = set()
+
+    for j in range(n_comp):
+        items_of_component[j]=0
+
+    for iz in range(cc_labels.shape[0]):
+        for iy in range(cc_labels.shape[1]):
+            for ix in range(cc_labels.shape[2]):
+
+                curr_comp = cc_labels[iz,iy,ix]
+                if curr_comp!=0:
+                    items_of_component[curr_comp]+=1
+                    if curr_comp not in cc_labels_known:
+                        cc_labels_known.add(curr_comp)
+                        if somae_raw[iz,iy,ix] in label_to_cclabel.keys():
+                            label_to_cclabel[somae_raw[iz,iy,ix]].append(curr_comp)
+                        else:
+                            label_to_cclabel[somae_raw[iz,iy,ix]] = [curr_comp]
+
+    return items_of_component, label_to_cclabel
+
+input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
+# somae_binary_mask = ReadH5File(input_folder+"Zebrafinch-somae_new-dsp_8.h5",[1])
 #
-#     n_comp = np.max(cc_labels) + 1
+# seg = ReadH5File(input_folder+"Zebrafinch-seg-dsp_8.h5",[1])
 #
-#     return cc_labels, n_comp
-#
-# # @njit
-# def evaluateLabels(cc_labels, somae_raw, n_comp):
-#
-#     items_of_component = dict()
-#     label_to_cclabel = dict()
-#     cc_labels_known = set()
-#
-#     for j in range(n_comp):
-#         items_of_component[j]=0
-#
-#     for iz in range(cc_labels.shape[0]):
-#         for iy in range(cc_labels.shape[1]):
-#             for ix in range(cc_labels.shape[2]):
-#
-#                 curr_comp = cc_labels[iz,iy,ix]
-#                 if curr_comp!=0:
-#                     items_of_component[curr_comp]+=1
-#                     if curr_comp not in cc_labels_known:
-#                         cc_labels_known.add(curr_comp)
-#                         if somae_raw[iz,iy,ix] in label_to_cclabel.keys():
-#                             label_to_cclabel[somae_raw[iz,iy,ix]].append(curr_comp)
-#                         else:
-#                             label_to_cclabel[somae_raw[iz,iy,ix]] = [curr_comp]
-#
-#     return items_of_component, label_to_cclabel
-#
-# input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
-# somae_raw = ReadH5File(input_folder+"Zebrafinch-somae-dsp_8.h5",[1])
+# somae_raw = seg.copy()
+# somae_raw[somae_binary_mask!=1]=0
 #
 # cc_labels, n_comp = computeConnectedComp26(somae_raw)
 # print("Components found: " + str(n_comp))
@@ -63,7 +68,7 @@ from numba import njit
 #     # print(largest_comp)
 #     somae_refined[cc_labels==largest_comp]=entry
 #
-# WriteH5File(somae_refined,input_folder+"Zebrafinch-somae_refined-dsp_8.h5","main")
+# WriteH5File(somae_refined,input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5","main")
 
 # process somae - write somae points and surface points for every block
 
@@ -75,8 +80,8 @@ block_size_dsp =    [int(512/dsp),int(512/dsp),int(512/dsp)]
 n_blocks =          [12,11,11]
 
 
-somae_refined = ReadH5File(input_folder+"Zebrafinch-somae_refined-dsp_8.h5",[1])
-output_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/somae_blocks_dsp8/"
+somae_refined = ReadH5File(input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5",[1])
+output_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/somae_blocks_dsp8_new/"
 for bz in range(n_blocks[0]):
     for by in range(n_blocks[1]):
         for bx in range(n_blocks[2]):
