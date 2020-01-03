@@ -429,8 +429,8 @@ def main():
     ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-092925/-90'
 
     # TrainOnMouse(restore=True, ckpt_restore=ckpt_restore)
-    # PredictOnZebrafinch(ckpt_restore)
-    PredictOnMouse(ckpt_restore)
+    PredictOnZebrafinch(ckpt_restore)
+    # PredictOnMouse(ckpt_restore)
 
 
 if True == 1:
