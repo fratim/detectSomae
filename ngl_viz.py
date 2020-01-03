@@ -69,9 +69,11 @@ def loadViz(box, path, caption, res, printIDs, idRes, printCoods):
 
 idRes = 1 #which resolution to use to search for IDs
 res=[20,18,18]; # resolution of the data
-data_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/"
-sample_name= "seg_Mouse_773x832x832"
-compare= "somae_reduced_cut_Mouse_773x832x832"
+data_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/"
+# sample_name= "Zebrafinch-seg-dsp_8"
+# compare= "Zebrafinch-somae_new-dsp_8"
+sample_name= "seg_Mouse_762x832x832"
+compare= "somae_pred_Mouse"
 # sample_name = "Zebrafinch-seg-dsp_8"
 # compare = "Zebrafinch-somae_refined-dsp_8"
 
@@ -94,8 +96,8 @@ print("----------------------------HOST:---------------------------------")
 print("-----------------------------------------------------------------")
 print(viewer)
 
-loadViz(box=box, path=fn_org,                   caption="segmentation",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
-loadViz(box=box, path=fn_compare,               caption="somae",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
+loadViz(box=box, path=fn_org,                   caption="segmentation",             res=res, printIDs = False, idRes=idRes,    printCoods=False)
+loadViz(box=box, path=fn_compare,               caption="somae",                    res=res, printIDs = False, idRes=idRes,    printCoods=False)
 # loadViz(box=box, path=fn_filled_gt,           caption="filled_gt",            res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
 # loadViz(box=box, path=fn_wholes_gt,             caption="wholes_gt",            res=res, printIDs = True, idRes=idRes,      printCoods=False)
 # loadViz(box=box, path=fn_filled_compare,        caption="filled_comp",          res=res, printIDs = True, idRes=idRes,      printCoods=False)

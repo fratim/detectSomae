@@ -11,6 +11,7 @@ Idea:
 TODO:
 1. write refinement of Somae to use numba or write it in c++
 2. incorporate resolution into mouse somae cutting
+3. implement on the fly computation of weights for weighted loss
 
 Questions to Alex:
 1. Will there also be cuts in the brain data segmentation?
