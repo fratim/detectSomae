@@ -156,7 +156,7 @@ class model_weights:
         for i in range( len( shapes ) ):
             self.values.append( get_weight( shapes[ i ] , 'weight{}'.format( i ) ) )
 
-            self.ckpt = tf.train.Checkpoint(**{f'values{i}': v for i, v in enumerate(self.values)})
+        self.ckpt = tf.train.Checkpoint(**{f'values{i}': v for i, v in enumerate(self.values)})
 
     def saveWeights(self):
         self.ckpt.save(self.checkpoint_path)
@@ -349,7 +349,7 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
         print("Weights saved ------------------")
 
 
-def TrainOnMouse():
+def TrainOnMouse(restore, ckpt_restore):
 
     # Mouse
     seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/seg_Mouse_762x832x832.h5"
@@ -360,7 +360,7 @@ def TrainOnMouse():
 
     train_seg, train_mask, valid_seg, valid_mask = prepareDataTraining(seg_data, somae_data)
 
-    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=False, ckpt_restore='None')
+    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=restore, ckpt_restore=ckpt_restore)
 
     trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss)
 
@@ -374,7 +374,7 @@ def PredictOnZebrafinch(ckpt_restore):
 
     weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=True, ckpt_restore=ckpt_restore)
 
-    somae_mask_out = np.zeros((valid_seg.shape[0],valid_seg.shape[1],valid_seg.shape[2]), dtype=np.uint64)
+    somae_mask_out = np.zeros((valid_seg.shape[0],valid_seg.shape[1],valid_seg.shape[2]), dtype=np.float64)
     print("Output shape: " + str(somae_mask_out.shape))
 
     for j in np.arange(0,valid_seg.shape[0],batch_size):
@@ -389,6 +389,8 @@ def PredictOnZebrafinch(ckpt_restore):
 
     somae_mask_out[somae_mask_out<=0.5]=0
     somae_mask_out[somae_mask_out>0.5]=1
+
+    somae_mask_out = somae_mask_out.astype(np.uint64)
 
     dataIO.WriteH5File(somae_mask_out, "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-somae_new-dsp_8.h5","main")
 
@@ -401,7 +403,7 @@ def PredictOnMouse(ckpt_restore):
 
     weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=True, ckpt_restore=ckpt_restore)
 
-    somae_mask_out = np.zeros((valid_seg.shape[0],valid_seg.shape[1],valid_seg.shape[2]), dtype=np.uint64)
+    somae_mask_out = np.zeros((valid_seg.shape[0],valid_seg.shape[1],valid_seg.shape[2]), dtype=np.float64)
     print("Output shape: " + str(somae_mask_out.shape))
 
     for j in np.arange(0,valid_seg.shape[0],batch_size):
@@ -417,15 +419,16 @@ def PredictOnMouse(ckpt_restore):
     somae_mask_out[somae_mask_out<=0.5]=0
     somae_mask_out[somae_mask_out>0.5]=1
 
+    somae_mask_out = somae_mask_out.astype(np.uint64)
+
     dataIO.WriteH5File(somae_mask_out, "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/somae_pred_Mouse.h5","main")
 
 
 def main():
-    # TrainOnMouse()
-
     # restore from checkpoint
-    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200102-190158/-46'
+    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-092925/-90'
 
+    # TrainOnMouse(restore=True, ckpt_restore=ckpt_restore)
     # PredictOnZebrafinch(ckpt_restore)
     PredictOnMouse(ckpt_restore)
 
