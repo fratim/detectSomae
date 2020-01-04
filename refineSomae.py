@@ -39,36 +39,36 @@ def evaluateLabels(cc_labels, somae_raw, n_comp):
     return items_of_component, label_to_cclabel
 
 input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
-# somae_binary_mask = ReadH5File(input_folder+"Zebrafinch-somae_new-dsp_8.h5",[1])
-#
-# seg = ReadH5File(input_folder+"Zebrafinch-seg-dsp_8.h5",[1])
-#
-# somae_raw = seg.copy()
-# somae_raw[somae_binary_mask!=1]=0
-#
-# cc_labels, n_comp = computeConnectedComp26(somae_raw)
-# print("Components found: " + str(n_comp))
-# items_of_component, label_to_cclabel = evaluateLabels(cc_labels, somae_raw, n_comp)
-#
-# somae_refined = np.zeros((somae_raw.shape),dtype=np.uint16)
-#
-# for entry in label_to_cclabel.keys():
-#
-#     print(entry)
-#     # print(label_to_cclabel[entry])
-#
-#     most_points = -1
-#     largest_comp = -1
-#     for comp in label_to_cclabel[entry]:
-#         # print(items_of_component[comp])
-#         if items_of_component[comp]>most_points:
-#             largest_comp = comp
-#             most_points = items_of_component[comp]
-#
-#     # print(largest_comp)
-#     somae_refined[cc_labels==largest_comp]=entry
-#
-# WriteH5File(somae_refined,input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5","main")
+somae_binary_mask = ReadH5File(input_folder+"Zebrafinch-somae_new-dsp_8.h5",[1])
+
+seg = ReadH5File(input_folder+"Zebrafinch-seg-dsp_8.h5",[1])
+
+somae_raw = seg.copy()
+somae_raw[somae_binary_mask!=1]=0
+
+cc_labels, n_comp = computeConnectedComp26(somae_raw)
+print("Components found: " + str(n_comp))
+items_of_component, label_to_cclabel = evaluateLabels(cc_labels, somae_raw, n_comp)
+
+somae_refined = np.zeros((somae_raw.shape),dtype=np.uint16)
+
+for entry in label_to_cclabel.keys():
+
+    print(entry)
+    # print(label_to_cclabel[entry])
+
+    most_points = -1
+    largest_comp = -1
+    for comp in label_to_cclabel[entry]:
+        # print(items_of_component[comp])
+        if items_of_component[comp]>most_points:
+            largest_comp = comp
+            most_points = items_of_component[comp]
+
+    # print(largest_comp)
+    somae_refined[cc_labels==largest_comp]=entry
+
+WriteH5File(somae_refined,input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5","main")
 
 # process somae - write somae points and surface points for every block
 

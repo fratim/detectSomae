@@ -10,8 +10,8 @@ padding = "SAME"
 batch_size = 8
 depth = 4
 learning_rate = 0.001
-image_size = 704
-epochs = 100
+image_size = 352
+epochs = 50
 
 # specify size of validation dataset
 val_data_size = 64
@@ -20,12 +20,12 @@ val_data_size = 64
 def prepareDataTraining(seg_data, somae_data):
 
     # mask the data to be binary
-    seg_data[seg_data>0]=1
-    somae_data[somae_data>0]=1
+    # seg_data[seg_data>0]=1
+    # somae_data[somae_data>0]=1 
 
-    #downsample in x and y direction
-    seg_data = seg_data[:,:,:]
-    somae_data = somae_data[:,:,:]
+    # cut to image size of Zebrafinch data
+    seg_data = seg_data[::2,::2,::2]
+    somae_data = somae_data[::2,::2,::2]
 
     # cut to image size of Zebrafinch data
     seg_data = seg_data[:,:image_size,:image_size]
@@ -61,13 +61,15 @@ def prepareDataTraining(seg_data, somae_data):
 def prepareDataPrediction(seg_data):
 
     # mask the data to be binary
-    seg_data[seg_data>0]=1
+    # seg_data[seg_data>0]=1
 
     #downsample in x and y direction
     seg_data = seg_data[:,:,:]
 
     # cut to image size of Zebrafinch data
     seg_data = seg_data[:,:image_size,:image_size]
+
+    print("Seg data shape: " + str(seg_data.shape))
 
     # create object to hold elements for 3D input tensors of depth(*2)+1
     seg_deep = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],depth*2+1), dtype=np.uint8)
@@ -319,6 +321,8 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
             mask_gt = tf.convert_to_tensor(mask, dtype=tf.float32 )
             optimizer = train_step(model, weights, image, mask_gt, optimizer, w_loss, train_loss, train_acc)
 
+            print(error)
+
         for j in np.arange(0,valid_seg.shape[0],batch_size):
 
             image = valid_seg[j:j+batch_size,:,:,:]
@@ -326,14 +330,10 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
             image = tf.convert_to_tensor( image , dtype=tf.float32 )
             mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
             mask_pred = predict_step(model, weights, image, mask_gt, w_loss, valid_loss, valid_acc).numpy()
-            mask_pred_thresh = mask_pred
-            mask_pred_thresh[mask_pred_thresh<=0.5]=0
-            mask_pred_thresh[mask_pred_thresh>0.5]=1
-            mask_pred_thresh = tf.convert_to_tensor(mask_pred_thresh, np.float32)
 
             if epoch%5==0:
                 with valid_summary_writer.as_default():
-                    tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([tf.expand_dims(image[:,:,:,depth],3), mask_gt, mask_pred_thresh],axis=1), step=epoch, max_outputs=5)
+                    tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([tf.expand_dims(image[:,:,:,depth],3), mask_gt, mask_pred],axis=1), step=epoch, max_outputs=5)
 
         # if valid_loss.result().numpy()<valid_loss_best:
         #     valid_loss_best = valid_loss.result().numpy()
@@ -426,10 +426,10 @@ def PredictOnMouse(ckpt_restore):
 
 def main():
     # restore from checkpoint
-    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-092925/-90'
+    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-142524/-100'
 
-    # TrainOnMouse(restore=True, ckpt_restore=ckpt_restore)
-    PredictOnZebrafinch(ckpt_restore)
+    TrainOnMouse(restore=False, ckpt_restore='None')
+    # PredictOnZebrafinch(ckpt_restore)
     # PredictOnMouse(ckpt_restore)
 
 
