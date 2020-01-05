@@ -20,12 +20,8 @@ val_data_size = 64
 def prepareDataTraining(seg_data, somae_data):
 
     # mask the data to be binary
-    # seg_data[seg_data>0]=1
-    # somae_data[somae_data>0]=1
-
-    # cut to image size of Zebrafinch data
-    seg_data = seg_data[::2,::2,::2]
-    somae_data = somae_data[::2,::2,::2]
+    seg_data[seg_data>0]=1
+    somae_data[somae_data>0]=1
 
     # cut to image size of Zebrafinch data
     seg_data = seg_data[:,:image_size,:image_size]
@@ -61,15 +57,13 @@ def prepareDataTraining(seg_data, somae_data):
 def prepareDataPrediction(seg_data):
 
     # mask the data to be binary
-    # seg_data[seg_data>0]=1
+    seg_data[seg_data>0]=1
 
     #downsample in x and y direction
     seg_data = seg_data[:,:,:]
 
     # cut to image size of Zebrafinch data
     seg_data = seg_data[:,:image_size,:image_size]
-
-    print("Seg data shape: " + str(seg_data.shape))
 
     # create object to hold elements for 3D input tensors of depth(*2)+1
     seg_deep = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],depth*2+1), dtype=np.uint8)
@@ -169,7 +163,7 @@ class model_weights:
         status.assert_consumed()  # Optional check
 
 #define UNET model
-@tf.function #TODO change this back
+@tf.function
 def model(L11, weights) :
     L12 = conv2d(L11, weights.values[0])
     L13 = conv2d(L12, weights.values[1])
@@ -320,8 +314,6 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
             image = tf.convert_to_tensor(image, dtype=tf.float32 )
             mask_gt = tf.convert_to_tensor(mask, dtype=tf.float32 )
             optimizer = train_step(model, weights, image, mask_gt, optimizer, w_loss, train_loss, train_acc)
-
-            print(error)
 
         for j in np.arange(0,valid_seg.shape[0],batch_size):
 
