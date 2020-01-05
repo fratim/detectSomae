@@ -10,7 +10,7 @@ padding = "SAME"
 batch_size = 8
 depth = 4
 learning_rate = 0.001
-image_size = 352
+image_size = 704
 epochs = 50
 
 # specify size of validation dataset
@@ -21,7 +21,7 @@ def prepareDataTraining(seg_data, somae_data):
 
     # mask the data to be binary
     # seg_data[seg_data>0]=1
-    # somae_data[somae_data>0]=1 
+    # somae_data[somae_data>0]=1
 
     # cut to image size of Zebrafinch data
     seg_data = seg_data[::2,::2,::2]
@@ -76,7 +76,7 @@ def prepareDataPrediction(seg_data):
 
     # populate deep segmentation tensor
     seg_deep[:,:,:,depth]=seg_data
-    for d in range(1,depth+1):
+    for d in range(1,depth+1):                              ## TODO do this inly once for prediction!!!
         seg_deep[:-d,:,:,depth+d]=seg_data[d:,:,:]
         seg_deep[d:,:,:,depth-d]=seg_data[:-d,:,:]
 
@@ -370,25 +370,40 @@ def PredictOnZebrafinch(ckpt_restore):
     seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-seg-dsp_8.h5"
     seg_data = dataIO.ReadH5File(seg_filepath, [1])
 
-    valid_seg = prepareDataPrediction(seg_data)
+    somae_mask_out = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2]), dtype=np.float64)
+    print("Output shape: " + str(somae_mask_out.shape))
 
     weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=True, ckpt_restore=ckpt_restore)
 
-    somae_mask_out = np.zeros((valid_seg.shape[0],valid_seg.shape[1],valid_seg.shape[2]), dtype=np.float64)
-    print("Output shape: " + str(somae_mask_out.shape))
+    # unique_ids = np.unique(seg_data)
+    ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
+    unique_ids = np.unique(ids)
 
-    for j in np.arange(0,valid_seg.shape[0],batch_size):
+    # for ID in unique_ids:
+    for ID in unique_ids:
 
-        image = valid_seg[j:j+batch_size,:,:,:]
-        image = tf.convert_to_tensor( image , dtype=tf.float32 )
-        mask_pred = tf.squeeze(model(image, weights))
+        print("Processind ID " + str(ID))
 
-        somae_mask_out[j:j+batch_size,:,:]=mask_pred.numpy()
+        seg_data_filtered = seg_data.copy()
+        seg_data_filtered[seg_data_filtered!=ID]=0
 
-        print(str(j).zfill(4))
+        valid_seg = prepareDataPrediction(seg_data_filtered)
 
-    somae_mask_out[somae_mask_out<=0.5]=0
-    somae_mask_out[somae_mask_out>0.5]=1
+        for j in np.arange(0,valid_seg.shape[0],batch_size):
+
+            image = valid_seg[j:j+batch_size,:,:,:]
+            image = tf.convert_to_tensor( image , dtype=tf.float32 )
+            image_1d = image[:,:,:,depth]
+
+            if np.max(image_1d)!=0:
+                mask_pred = tf.squeeze(model(image, weights)).numpy()
+                mask_pred[mask_pred<=0.5]=0
+                mask_pred[mask_pred>0.5]=1
+
+                mask_pred = image_1d*mask_pred
+                somae_mask_out[j:j+batch_size,:,:] = somae_mask_out[j:j+batch_size,:,:]+mask_pred[:,:,:]
+
+        del seg_data_filtered
 
     somae_mask_out = somae_mask_out.astype(np.uint64)
 
@@ -428,8 +443,8 @@ def main():
     # restore from checkpoint
     ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-142524/-100'
 
-    TrainOnMouse(restore=False, ckpt_restore='None')
-    # PredictOnZebrafinch(ckpt_restore)
+    # TrainOnMouse(restore=False, ckpt_restore='None')
+    PredictOnZebrafinch(ckpt_restore)
     # PredictOnMouse(ckpt_restore)
 
 

@@ -44,7 +44,7 @@ somae_binary_mask = ReadH5File(input_folder+"Zebrafinch-somae_new-dsp_8.h5",[1])
 seg = ReadH5File(input_folder+"Zebrafinch-seg-dsp_8.h5",[1])
 
 somae_raw = seg.copy()
-somae_raw[somae_binary_mask!=1]=0
+somae_raw[somae_binary_mask==0]=0
 
 cc_labels, n_comp = computeConnectedComp26(somae_raw)
 print("Components found: " + str(n_comp))
