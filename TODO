@@ -17,3 +17,26 @@ Questions to Alex:
 1. Will there also be cuts in the brain data segmentation?
 2. Do we already have synapses for the brain segmentation?
 3. What is the maximum distance to still project synapses?
+
+Paper Questions:
+1. Are there any ideas on space per topic yet?
+2. Which software/ layout do we use for graphs and visuals?
+3. Any other already made decisions?
+4. Can we assume everything written in your paper to be known?
+5. How much is this going to be a manual?
+6. Which other chapters will we have?
+
+Status:
+1. Somae detection improved had some issues with generalization that I think are fixed
+2. Asked Donglai about JWR, there apparently is a small bug but should be fixed soon
+
+Things to do:
+1. Proofread some Zebrafinch Somaes
+2. Is width estimation working?
+3. blocksize Experiment
+4. runtime
+5. run CC to get largest on Zebrafinch
+6. Hole filling runtime improvement
+7. Hole statistics
+8. Run statistics also on JWR
+9. Figures

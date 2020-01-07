@@ -11,17 +11,19 @@ batch_size = 8
 depth = 4
 learning_rate = 0.001
 image_size = 704
-epochs = 50
+epochs = 500
 
 # specify size of validation dataset
 val_data_size = 64
 
 # preprocess input data
-def prepareDataTraining(seg_data, somae_data):
+def prepareDataTraining(seg_data, somae_data_raw):
 
-    # mask the data to be binary
-    seg_data[seg_data>0]=1
-    somae_data[somae_data>0]=1
+    somae_data = seg_data.copy()
+    somae_data[somae_data_raw==0]=0
+
+    # seg_data = seg_data[::2,::2,::2]
+    # somae_data = somae_data[::2,::2,::2]
 
     # cut to image size of Zebrafinch data
     seg_data = seg_data[:,:image_size,:image_size]
@@ -55,9 +57,6 @@ def prepareDataTraining(seg_data, somae_data):
 
 # preprocess input data
 def prepareDataPrediction(seg_data):
-
-    # mask the data to be binary
-    seg_data[seg_data>0]=1
 
     #downsample in x and y direction
     seg_data = seg_data[:,:,:]
@@ -248,7 +247,7 @@ def initializeModel(restore, ckpt_restore):
         weights.restoreWeights(ckpt_restore)
 
     # initialize loss
-    w_loss = WeightedBinaryCrossEntropy(13, 1)
+    w_loss = WeightedBinaryCrossEntropy(50, 1)
 
     # initialize optimizer
     optimizer = tf.optimizers.Adam(learning_rate)
@@ -309,21 +308,49 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
 
         for k in np.arange(0,train_seg.shape[0],batch_size):
 
-            image = train_seg[k:k+batch_size,:,:,:]
-            mask = train_mask[k:k+batch_size,:,:,None]
+            image = train_seg[k:k+batch_size,:,:,:].copy()
+            mask = train_mask[k:k+batch_size,:,:,None].copy()
+
+            # choose random ID
+            ids_present = np.unique(mask)
+            if ids_present[0]==0: ids_present=ids_present[1:]
+            id_rand = np.random.choice(ids_present)
+
+            # print("k: " + str(k) + ", id_rand: " +str(id_rand))
+
+            # binarize
+            image[image!=id_rand]=0
+            image[image==id_rand]=1
+            mask[mask!=id_rand]=0
+            mask[mask==id_rand]=1
+
             image = tf.convert_to_tensor(image, dtype=tf.float32 )
             mask_gt = tf.convert_to_tensor(mask, dtype=tf.float32 )
             optimizer = train_step(model, weights, image, mask_gt, optimizer, w_loss, train_loss, train_acc)
 
         for j in np.arange(0,valid_seg.shape[0],batch_size):
 
-            image = valid_seg[j:j+batch_size,:,:,:]
-            mask = valid_mask[j:j+batch_size,:,:,None]
+            image = valid_seg[j:j+batch_size,:,:,:].copy()
+            mask = valid_mask[j:j+batch_size,:,:,None].copy()
+
+            # choose random ID
+            ids_present = np.unique(mask)
+            if ids_present[0]==0: ids_present=ids_present[1:]
+            id_rand = np.random.choice(ids_present)
+
+            # print("j: " + str(j) + ", id_rand: " +str(id_rand))
+
+            # binarize
+            image[image!=id_rand]=0
+            image[image==id_rand]=1
+            mask[mask!=id_rand]=0
+            mask[mask==id_rand]=1
+
             image = tf.convert_to_tensor( image , dtype=tf.float32 )
             mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
             mask_pred = predict_step(model, weights, image, mask_gt, w_loss, valid_loss, valid_acc).numpy()
 
-            if epoch%5==0:
+            if epoch%10==0:
                 with valid_summary_writer.as_default():
                     tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([tf.expand_dims(image[:,:,:,depth],3), mask_gt, mask_pred],axis=1), step=epoch, max_outputs=5)
 
@@ -367,32 +394,37 @@ def PredictOnZebrafinch(ckpt_restore):
 
     weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=True, ckpt_restore=ckpt_restore)
 
-    # unique_ids = np.unique(seg_data)
-    ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
-    unique_ids = np.unique(ids)
+    seg_data_prep = prepareDataPrediction(seg_data)
+
+    print(np.unique(seg_data_prep))
+    unique_ids = np.unique(seg_data)
+    print(unique_ids)
+
+    # ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
+    # unique_ids = np.unique(ids)
 
     # for ID in unique_ids:
     for ID in unique_ids:
 
         print("Processind ID " + str(ID))
 
-        seg_data_filtered = seg_data.copy()
+        seg_data_filtered = seg_data_prep.copy()
         seg_data_filtered[seg_data_filtered!=ID]=0
 
-        valid_seg = prepareDataPrediction(seg_data_filtered)
+        # mask the data to be binary
+        seg_data_filtered[seg_data_filtered>0]=1
 
-        for j in np.arange(0,valid_seg.shape[0],batch_size):
+        for j in np.arange(0,seg_data_filtered.shape[0],batch_size):
 
-            image = valid_seg[j:j+batch_size,:,:,:]
+            image = seg_data_filtered[j:j+batch_size,:,:,:]
             image = tf.convert_to_tensor( image , dtype=tf.float32 )
-            image_1d = image[:,:,:,depth]
 
-            if np.max(image_1d)!=0:
+            if np.max(image[:,:,:,depth])!=0:
                 mask_pred = tf.squeeze(model(image, weights)).numpy()
                 mask_pred[mask_pred<=0.5]=0
                 mask_pred[mask_pred>0.5]=1
 
-                mask_pred = image_1d*mask_pred
+                mask_pred = image[:,:,:,depth]*mask_pred
                 somae_mask_out[j:j+batch_size,:,:] = somae_mask_out[j:j+batch_size,:,:]+mask_pred[:,:,:]
 
         del seg_data_filtered
@@ -435,8 +467,8 @@ def main():
     # restore from checkpoint
     ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-142524/-100'
 
-    # TrainOnMouse(restore=False, ckpt_restore='None')
-    PredictOnZebrafinch(ckpt_restore)
+    TrainOnMouse(restore=False, ckpt_restore='None')
+    # PredictOnZebrafinch(ckpt_restore)
     # PredictOnMouse(ckpt_restore)
 
 

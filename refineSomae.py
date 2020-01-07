@@ -1,7 +1,8 @@
 import cc3d
 import numpy as np
 from dataIO import *
-from numba import njit
+from numba import njit, types
+from numba.typed import Dict
 
 #compute the connected Com ponent labels
 def computeConnectedComp26(labels):
@@ -12,12 +13,15 @@ def computeConnectedComp26(labels):
 
     return cc_labels, n_comp
 
-# @njit
+float_array = types.int64[:]
+
+@njit
 def evaluateLabels(cc_labels, somae_raw, n_comp):
 
-    items_of_component = dict()
-    label_to_cclabel = dict()
+    items_of_component = Dict.empty(key_type=types.int64,value_type=types.int64)
+    label_to_cclabel = Dict.empty(key_type=types.int64,value_type=float_array)
     cc_labels_known = set()
+    label_to_cclabel_keys = set()
 
     for j in range(n_comp):
         items_of_component[j]=0
@@ -31,10 +35,12 @@ def evaluateLabels(cc_labels, somae_raw, n_comp):
                     items_of_component[curr_comp]+=1
                     if curr_comp not in cc_labels_known:
                         cc_labels_known.add(curr_comp)
-                        if somae_raw[iz,iy,ix] in label_to_cclabel.keys():
-                            label_to_cclabel[somae_raw[iz,iy,ix]].append(curr_comp)
+                        if somae_raw[iz,iy,ix] in label_to_cclabel_keys:
+                            add = np.array([curr_comp]).astype(np.int64)
+                            label_to_cclabel[somae_raw[iz,iy,ix]] = np.concatenate((label_to_cclabel[somae_raw[iz,iy,ix]].ravel(), add))
                         else:
-                            label_to_cclabel[somae_raw[iz,iy,ix]] = [curr_comp]
+                            label_to_cclabel[somae_raw[iz,iy,ix]] = np.array([curr_comp],dtype=np.int64).astype(np.int64)
+                            label_to_cclabel_keys.add(somae_raw[iz,iy,ix])
 
     return items_of_component, label_to_cclabel
 
