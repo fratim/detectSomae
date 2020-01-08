@@ -247,7 +247,7 @@ def initializeModel(restore, ckpt_restore):
         weights.restoreWeights(ckpt_restore)
 
     # initialize loss
-    w_loss = WeightedBinaryCrossEntropy(50, 1)
+    w_loss = WeightedBinaryCrossEntropy(30, 1)
 
     # initialize optimizer
     optimizer = tf.optimizers.Adam(learning_rate)
@@ -316,8 +316,6 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
             if ids_present[0]==0: ids_present=ids_present[1:]
             id_rand = np.random.choice(ids_present)
 
-            # print("k: " + str(k) + ", id_rand: " +str(id_rand))
-
             # binarize
             image[image!=id_rand]=0
             image[image==id_rand]=1
@@ -337,8 +335,6 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
             ids_present = np.unique(mask)
             if ids_present[0]==0: ids_present=ids_present[1:]
             id_rand = np.random.choice(ids_present)
-
-            # print("j: " + str(j) + ", id_rand: " +str(id_rand))
 
             # binarize
             image[image!=id_rand]=0
@@ -465,7 +461,7 @@ def PredictOnMouse(ckpt_restore):
 
 def main():
     # restore from checkpoint
-    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200103-142524/-100'
+    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200107-123546/-100'
 
     TrainOnMouse(restore=False, ckpt_restore='None')
     # PredictOnZebrafinch(ckpt_restore)

@@ -44,6 +44,17 @@ def evaluateLabels(cc_labels, somae_raw, n_comp):
 
     return items_of_component, label_to_cclabel
 
+@njit
+def update_labels(keep_labels, labels_in, cc_labels):
+    for iz in range(labels_in.shape[0]):
+        for iy in range(labels_in.shape[1]):
+            for ix in range(labels_in.shape[2]):
+
+                if cc_labels[iz,iy,ix] not in keep_labels:
+                    labels_in[iz,iy,ix]=0
+
+    return labels_in
+
 input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
 somae_binary_mask = ReadH5File(input_folder+"Zebrafinch-somae_new-dsp_8.h5",[1])
 
@@ -56,7 +67,7 @@ cc_labels, n_comp = computeConnectedComp26(somae_raw)
 print("Components found: " + str(n_comp))
 items_of_component, label_to_cclabel = evaluateLabels(cc_labels, somae_raw, n_comp)
 
-somae_refined = np.zeros((somae_raw.shape),dtype=np.uint16)
+keep_labels = set()
 
 for entry in label_to_cclabel.keys():
 
@@ -71,8 +82,9 @@ for entry in label_to_cclabel.keys():
             largest_comp = comp
             most_points = items_of_component[comp]
 
-    # print(largest_comp)
-    somae_refined[cc_labels==largest_comp]=entry
+    keep_labels.add(largest_comp)
+
+somae_refined = update_labels(keep_labels, somae_raw, cc_labels)
 
 WriteH5File(somae_refined,input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5","main")
 
