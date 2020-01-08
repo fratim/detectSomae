@@ -247,7 +247,7 @@ def initializeModel(restore, ckpt_restore):
         weights.restoreWeights(ckpt_restore)
 
     # initialize loss
-    w_loss = WeightedBinaryCrossEntropy(30, 1)
+    w_loss = WeightedBinaryCrossEntropy(15, 1)
 
     # initialize optimizer
     optimizer = tf.optimizers.Adam(learning_rate)
