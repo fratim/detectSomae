@@ -247,7 +247,7 @@ def initializeModel(restore, ckpt_restore):
         weights.restoreWeights(ckpt_restore)
 
     # initialize loss
-    w_loss = WeightedBinaryCrossEntropy(15, 1)
+    w_loss = WeightedBinaryCrossEntropy(8, 1)
 
     # initialize optimizer
     optimizer = tf.optimizers.Adam(learning_rate)
@@ -392,12 +392,13 @@ def PredictOnZebrafinch(ckpt_restore):
 
     seg_data_prep = prepareDataPrediction(seg_data)
 
-    print(np.unique(seg_data_prep))
-    unique_ids = np.unique(seg_data)
+    ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
+    unique_ids = np.unique(ids)
+
+    # unique_ids = np.unique(seg_data)
+
     print(unique_ids)
 
-    # ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
-    # unique_ids = np.unique(ids)
 
     # for ID in unique_ids:
     for ID in unique_ids:
@@ -461,7 +462,7 @@ def PredictOnMouse(ckpt_restore):
 
 def main():
     # restore from checkpoint
-    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200107-123546/-100'
+    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200108-115637/-160'
 
     TrainOnMouse(restore=False, ckpt_restore='None')
     # PredictOnZebrafinch(ckpt_restore)
