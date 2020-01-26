@@ -15,7 +15,7 @@ def ReadH5File(filename,box):
     # return the first h5 dataset from this file
     with h5py.File(filename, 'r') as hf:
         keys = [key for key in hf.keys()]
-        # print("Data keys are: ", str(keys))
+        print("Data keys are: ", str(keys))
         d = hf[keys[0]]
         # print("Data shape: ", str(d.shape))
         # load selected part of data
@@ -69,15 +69,16 @@ def loadViz(box, path, caption, res, printIDs, idRes, printCoods):
 
 idRes = 1 #which resolution to use to search for IDs
 res=[20,18,18]; # resolution of the data
+# data_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/"
 data_path = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
 
-sample_name= "Zebrafinch-seg-dsp_8"
-compare= "Zebrafinch-somae_new_refined-dsp_8"
-compare2= "Zebrafinch-somae_refined-dsp_8"
+sample_name= "Zebrafinch-seg_filled_dsp8"
+compare= "Zebrafinch-somae_filled_new-dsp_8"
+# compare2= "somae_Mouse_over_762x832x832"
 
-# sample_name= "seg_Mouse_762x832x832"
-# compare= "somae_pred_Mouse"
-# compare2= "somae_Mouse_762x832x832"
+# sample_name = "Zebrafinch-labels_discarded-00.0z-0000y-0000x"
+# compare = "Zebrafinch-labels_discarded-00.0z-0001y-0000x"
+# compare2 = "Zebrafinch-labels_discarded-00.0z-0000y-0001x"
 
 
 # box = [0,1152,0,1000,0,1000]
@@ -85,7 +86,7 @@ box = [1]
 
 fn_org =                 data_path  + sample_name + ".h5"
 fn_compare =             data_path  + compare + ".h5"
-fn_compare2 =             data_path  + compare2 + ".h5"
+# fn_compare2 =             data_path  + compare2 + ".h5"
 
 
 
@@ -101,8 +102,8 @@ print("-----------------------------------------------------------------")
 print(viewer)
 
 loadViz(box=box, path=fn_org,                   caption="segmentation",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
-loadViz(box=box, path=fn_compare,               caption="somae_pred_new",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
-loadViz(box=box, path=fn_compare2,               caption="somae_pred_old",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
+loadViz(box=box, path=fn_compare,               caption="soma",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
+# loadViz(box=box, path=fn_compare2,               caption="somae_over",                    res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
 # loadViz(box=box, path=fn_filled_gt,           caption="filled_gt",            res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
 # loadViz(box=box, path=fn_wholes_gt,             caption="wholes_gt",            res=res, printIDs = True, idRes=idRes,      printCoods=False)
 # loadViz(box=box, path=fn_filled_compare,        caption="filled_comp",          res=res, printIDs = True, idRes=idRes,      printCoods=False)

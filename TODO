@@ -31,12 +31,12 @@ Status:
 2. Asked Donglai about JWR, there apparently is a small bug but should be fixed soon
 
 Things to do:
-1. Proofread some Zebrafinch Somaes
+1. Proofread some Zebrafinch Somaes - maybe JWR is enough for validation scores
 2. Is width estimation working?
 3. blocksize Experiment
 4. runtime
-5. run CC to get largest on Zebrafinch
+5. run CC to get largest on Zebrafinch - done, check results (labeled as discarded)
 6. Hole filling runtime improvement
-7. Hole statistics
-8. Run statistics also on JWR
-9. Figures
+7. Hole statistics - done
+8. Run statistics also on JWR - todo
+9. Figures - ongoing

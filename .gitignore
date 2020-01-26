@@ -21,6 +21,7 @@ Mouse/images/*
 Mouse/images_cut/*
 logs/*
 ckpt*
+temp_trash/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

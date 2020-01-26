@@ -55,29 +55,42 @@ def update_labels(keep_labels, labels_in, cc_labels):
 
     return labels_in
 
-input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
-somae_binary_mask = ReadH5File(input_folder+"Zebrafinch-somae_new-dsp_8.h5",[1])
+dsp = 8
+block_size =        [1024,1024,1024]
+block_size_dsp =    [block_size[0]//dsp,block_size[0]//dsp,block_size[0]//dsp]
+n_blocks =          [6,6,6]
 
-seg = ReadH5File(input_folder+"Zebrafinch-seg-dsp_8.h5",[1])
+# network size used for prediction (x-y), can be smaller due to padding
+network_size = 704
+
+input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
+seg_input_fname = input_folder+"Zebrafinch-seg_filled_dsp8.h5"
+somae_input_fname = input_folder+"Zebrafinch-somae_filled-dsp_8.h5"
+somae_refined_output_fname = input_folder+"Zebrafinch-somae_filled_refined-dsp_8.h5"
+output_folder_blocks = input_folder+"somae_dsp8_{}x{}x{}/".format(block_size[2],block_size[1],block_size[0])
+
+somae_binary_mask = ReadH5File(somae_input_fname,[1])
+seg = ReadH5File(seg_input_fname,[1])
+
+if seg.shape[0]!=somae_binary_mask.shape[0]:
+    raise ValueError("Unknown Error")
+
+seg = seg[:,:network_size,:network_size]
 
 somae_raw = seg.copy()
 somae_raw[somae_binary_mask==0]=0
 
 cc_labels, n_comp = computeConnectedComp26(somae_raw)
+
 print("Components found: " + str(n_comp))
 items_of_component, label_to_cclabel = evaluateLabels(cc_labels, somae_raw, n_comp)
 
 keep_labels = set()
 
 for entry in label_to_cclabel.keys():
-
-    print(entry)
-    # print(label_to_cclabel[entry])
-
     most_points = -1
     largest_comp = -1
     for comp in label_to_cclabel[entry]:
-        # print(items_of_component[comp])
         if items_of_component[comp]>most_points:
             largest_comp = comp
             most_points = items_of_component[comp]
@@ -86,35 +99,24 @@ for entry in label_to_cclabel.keys():
 
 somae_refined = update_labels(keep_labels, somae_raw, cc_labels)
 
-WriteH5File(somae_refined,input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5","main")
+WriteH5File(somae_refined,somae_refined_output_fname,"main")
 
 # process somae - write somae points and surface points for every block
 
-dsp = 8
-# volume_size =       [6144,5632,5632]
-block_size =        [512,512,512]
-# volume_size_dsp =   [6144/dsp,5632/dsp,5632/dsp]
-block_size_dsp =    [int(512/dsp),int(512/dsp),int(512/dsp)]
-n_blocks =          [12,11,11]
-
-
-somae_refined = ReadH5File(input_folder+"Zebrafinch-somae_new_refined-dsp_8.h5",[1])
-output_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/somae_blocks_dsp8_new/"
+somae_refined = ReadH5File(somae_refined_output_fname,[1])
 for bz in range(n_blocks[0]):
     for by in range(n_blocks[1]):
         for bx in range(n_blocks[2]):
+
+            labels_out = np.zeros((block_size_dsp[0],block_size_dsp[1],block_size_dsp[2]),dtype=np.uint64)
 
             somae_block_dsp = somae_refined[bz*block_size_dsp[0]:(bz+1)*block_size_dsp[0],
                                             by*block_size_dsp[1]:(by+1)*block_size_dsp[1],
                                             bx*block_size_dsp[2]:(bx+1)*block_size_dsp[2]]
 
-            print(somae_block_dsp.shape)
+            labels_out[:somae_block_dsp.shape[0],:somae_block_dsp.shape[1],:somae_block_dsp.shape[2]] = somae_block_dsp
 
-            # somae_block = np.kron(somae_block_dsp, np.ones((dsp,dsp,dsp),dtype=np.uint64))
-            # if somae_block.shape[0]!=block_size[0] or somae_block.shape[1]!=block_size[1] or somae_block.shape[2]!=block_size[2]:
-            #     raise ValueError("Unknown Error")
+            print(labels_out.shape)
 
-            filename_dsp = output_folder+'Zebrafinch-somae_refined_dsp8-{:04d}z-{:04d}y-{:04d}x.h5'.format(bz,by,bx)
-            # filename_org = output_folder+'Zebrafinch-somae_refined-{:04d}z-{:04d}y-{:04d}x.h5'.format(bz,by,bx)
-            WriteH5File(somae_block_dsp,filename_dsp,   "main")
-            # WriteH5File(somae_block,    filename_org,  "main")
+            filename_dsp = output_folder+'Zebrafinch-somae_filled_refined_dsp{}-{:04d}z-{:04d}y-{:04d}x.h5'.format(dsp,bz,by,bx)
+            WriteH5File(labels_out,filename_dsp,   "main")

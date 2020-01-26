@@ -5,16 +5,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 from datetime import datetime
+import os
+
+# os.environ['AUTOGRAPH_VERBOSITY'] = 0
+tf.get_logger().setLevel('ERROR')
 
 padding = "SAME"
-batch_size = 8
 depth = 4
 learning_rate = 0.001
-image_size = 704
 epochs = 500
 
+# batch_size = 4
+batch_size = 8
+# network_size = 832
+network_size = 704
+
 # specify size of validation dataset
-val_data_size = 64
+val_data_size = 384
 
 # preprocess input data
 def prepareDataTraining(seg_data, somae_data_raw):
@@ -26,8 +33,8 @@ def prepareDataTraining(seg_data, somae_data_raw):
     # somae_data = somae_data[::2,::2,::2]
 
     # cut to image size of Zebrafinch data
-    seg_data = seg_data[:,:image_size,:image_size]
-    somae_data = somae_data[:,:image_size,:image_size]
+    seg_data = seg_data[:,:network_size,:network_size]
+    somae_data = somae_data[:,:network_size,:network_size]
 
     # create object to hold elements for 3D input tensors of depth(*2)+1
     seg_deep = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],depth*2+1), dtype=np.uint8)
@@ -58,11 +65,8 @@ def prepareDataTraining(seg_data, somae_data_raw):
 # preprocess input data
 def prepareDataPrediction(seg_data):
 
-    #downsample in x and y direction
-    seg_data = seg_data[:,:,:]
-
     # cut to image size of Zebrafinch data
-    seg_data = seg_data[:,:image_size,:image_size]
+    seg_data = seg_data[:,:network_size,:network_size]
 
     # create object to hold elements for 3D input tensors of depth(*2)+1
     seg_deep = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2],depth*2+1), dtype=np.uint8)
@@ -247,7 +251,7 @@ def initializeModel(restore, ckpt_restore):
         weights.restoreWeights(ckpt_restore)
 
     # initialize loss
-    w_loss = WeightedBinaryCrossEntropy(8, 1)
+    w_loss = WeightedBinaryCrossEntropy(12, 1)
 
     # initialize optimizer
     optimizer = tf.optimizers.Adam(learning_rate)
@@ -258,7 +262,13 @@ def initializeModel(restore, ckpt_restore):
     train_loss = tf.metrics.Mean()
     valid_loss = tf.metrics.Mean()
 
-    return weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss
+    TP = tf.keras.metrics.TruePositives()
+    FP = tf.keras.metrics.FalsePositives()
+    TN = tf.keras.metrics.TrueNegatives()
+    FN = tf.keras.metrics.FalseNegatives()
+
+
+    return weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss, TP, FP, TN, FN
 
 # define train step
 def train_step(model, weights, inputs, gt, optimizer, w_loss, train_loss, train_acc):
@@ -273,16 +283,21 @@ def train_step(model, weights, inputs, gt, optimizer, w_loss, train_loss, train_
     return optimizer
 
 #define prediction step
-def predict_step(model, weights, inputs, gt, w_loss, valid_loss, valid_acc): #TODO remove paqssing of model here
+def predict_step(model, weights, inputs, gt, w_loss, valid_loss, valid_acc, TP, FP, TN, FN): #TODO remove paqssing of model here
     pred = model(inputs, weights)
     current_loss = w_loss( gt, pred)
     valid_loss.update_state(current_loss)
     valid_acc.update_state(gt, pred)
+    TP.update_state(gt,pred)
+    FP.update_state(gt,pred)
+    TN.update_state(gt,pred)
+    FN.update_state(gt,pred)
+
 
     return pred
 
 
-def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss):
+def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss, TP, FP, TN, FN):
 
     current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -293,12 +308,35 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
     valid_loss_best = 1000000000
     for epoch in range(epochs):
 
+        print("TP: ")
+        print(TP.result().numpy())
+
+        print("FN: ")
+        print(FN.result().numpy())
+
+        print("FP: ")
+        print(FP.result().numpy())
+
+        print("TN: ")
+        print(TN.result().numpy())
+
+        TPR = TP.result().numpy()/(TP.result().numpy()+FN.result().numpy())
+        FPR = FP.result().numpy()/(FP.result().numpy()+TN.result().numpy())
+
+        print("TPR: ")
+        print(TPR)
+
+        print("FPR: ")
+        print(FPR)
+
         with train_summary_writer.as_default():
             tf.summary.scalar('loss', train_loss.result(), step=epoch)
             tf.summary.scalar('accuracy', train_acc.result(), step=epoch)
         with valid_summary_writer.as_default():
             tf.summary.scalar('loss', valid_loss.result(), step=epoch)
             tf.summary.scalar('accuracy', valid_acc.result(), step=epoch)
+            tf.summary.scalar('TPR', TPR, step=epoch)
+            tf.summary.scalar('FPR', FPR, step=epoch)
         train_acc.reset_states()
         valid_acc.reset_states()
         train_loss.reset_states()
@@ -344,7 +382,7 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
 
             image = tf.convert_to_tensor( image , dtype=tf.float32 )
             mask_gt = tf.convert_to_tensor( mask , dtype=tf.float32 )
-            mask_pred = predict_step(model, weights, image, mask_gt, w_loss, valid_loss, valid_acc).numpy()
+            mask_pred = predict_step(model, weights, image, mask_gt, w_loss, valid_loss, valid_acc, TP, FP, TN, FN).numpy()
 
             if epoch%10==0:
                 with valid_summary_writer.as_default():
@@ -375,30 +413,32 @@ def TrainOnMouse(restore, ckpt_restore):
 
     train_seg, train_mask, valid_seg, valid_mask = prepareDataTraining(seg_data, somae_data)
 
-    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=restore, ckpt_restore=ckpt_restore)
+    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss, TP, FP, TN, FN = initializeModel(restore=restore, ckpt_restore=ckpt_restore)
 
-    trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss)
+    trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss, TP, FP, TN, FN)
 
 def PredictOnZebrafinch(ckpt_restore):
 
     # Zebrafinch
-    seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-seg-dsp_8.h5"
+    seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-seg_filled_dsp8.h5"
     seg_data = dataIO.ReadH5File(seg_filepath, [1])
+
+    seg_data = seg_data[:,:network_size,:network_size]
 
     somae_mask_out = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2]), dtype=np.float64)
     print("Output shape: " + str(somae_mask_out.shape))
 
-    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=True, ckpt_restore=ckpt_restore)
+    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss, TP, FP, TN, FN  = initializeModel(restore=True, ckpt_restore=ckpt_restore)
 
     seg_data_prep = prepareDataPrediction(seg_data)
 
-    ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
-    unique_ids = np.unique(ids)
+    # ids = [406,171,335,161,77,331,338,240,143,388,225,408,285,264,191,293,103,111,134,139,94,237,219,267,212,321,234,401,285,225]
+    # ids = [406,171]
+    # unique_ids = np.unique(ids)
 
-    # unique_ids = np.unique(seg_data)
+    unique_ids = np.unique(seg_data)
 
     print(unique_ids)
-
 
     # for ID in unique_ids:
     for ID in unique_ids:
@@ -414,10 +454,13 @@ def PredictOnZebrafinch(ckpt_restore):
         for j in np.arange(0,seg_data_filtered.shape[0],batch_size):
 
             image = seg_data_filtered[j:j+batch_size,:,:,:]
+
             image = tf.convert_to_tensor( image , dtype=tf.float32 )
 
             if np.max(image[:,:,:,depth])!=0:
+
                 mask_pred = tf.squeeze(model(image, weights)).numpy()
+
                 mask_pred[mask_pred<=0.5]=0
                 mask_pred[mask_pred>0.5]=1
 
@@ -428,12 +471,15 @@ def PredictOnZebrafinch(ckpt_restore):
 
     somae_mask_out = somae_mask_out.astype(np.uint64)
 
-    dataIO.WriteH5File(somae_mask_out, "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-somae_new-dsp_8.h5","main")
+    dataIO.WriteH5File(somae_mask_out, "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-somae_filled_new-dsp_8.h5","main")
 
 def PredictOnMouse(ckpt_restore):
     # Zebrafinch
     seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/seg_Mouse_762x832x832.h5"
     seg_data = dataIO.ReadH5File(seg_filepath, [1])
+    print("Seg Data Input Shape: " + str(seg_data))
+
+    seg_data = seg_data[:,:network_size,:network_size]
 
     valid_seg = prepareDataPrediction(seg_data)
 
@@ -459,13 +505,39 @@ def PredictOnMouse(ckpt_restore):
 
     dataIO.WriteH5File(somae_mask_out, "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/somae_pred_Mouse.h5","main")
 
+def tensorflow_shutup():
+    """
+    Make Tensorflow less verbose
+    """
+    try:
+        # noinspection PyPackageRequirements
+        import os
+        from tensorflow import logging
+        logging.set_verbosity(logging.ERROR)
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+        # Monkey patching deprecation utils to shut it up! Maybe good idea to disable this once after upgrade
+        # noinspection PyUnusedLocal
+        def deprecated(date, instructions, warn_once=True):
+            def deprecated_wrapper(func):
+                return func
+            return deprecated_wrapper
+
+        from tensorflow.python.util import deprecation
+        deprecation.deprecated = deprecated
+
+    except ImportError:
+        pass
 
 def main():
-    # restore from checkpoint
-    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200108-115637/-160'
 
-    TrainOnMouse(restore=False, ckpt_restore='None')
-    # PredictOnZebrafinch(ckpt_restore)
+    tensorflow_shutup()
+
+    # restore from checkpoint
+    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200108-153805/-130'
+
+    # TrainOnMouse(restore=False, ckpt_restore='None')
+    PredictOnZebrafinch(ckpt_restore)
     # PredictOnMouse(ckpt_restore)
 
 
