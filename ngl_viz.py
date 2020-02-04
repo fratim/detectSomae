@@ -69,11 +69,11 @@ def loadViz(box, path, caption, res, printIDs, idRes, printCoods):
 
 idRes = 1 #which resolution to use to search for IDs
 res=[20,18,18]; # resolution of the data
-# data_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/"
-data_path = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
+data_path = "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/"
+# data_path = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/filled/"
 
-sample_name= "Zebrafinch-seg_filled_dsp8"
-compare= "Zebrafinch-somae_filled_new-dsp_8"
+sample_name= "Zebrafinch-seg_filled-dsp8"
+compare= "Zebrafinch-somae_filled_refined-dsp_8"
 # compare2= "somae_Mouse_over_762x832x832"
 
 # sample_name = "Zebrafinch-labels_discarded-00.0z-0000y-0000x"

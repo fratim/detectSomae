@@ -57,66 +57,66 @@ def update_labels(keep_labels, labels_in, cc_labels):
 
 dsp = 8
 block_size =        [1024,1024,1024]
-block_size_dsp =    [block_size[0]//dsp,block_size[0]//dsp,block_size[0]//dsp]
+block_size_dsp =    [block_size[0]//dsp,block_size[1]//dsp,block_size[2]//dsp]
 n_blocks =          [6,6,6]
 
 # network size used for prediction (x-y), can be smaller due to padding
 network_size = 704
 
 input_folder = "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/"
-seg_input_fname = input_folder+"Zebrafinch-seg_filled_dsp8.h5"
-somae_input_fname = input_folder+"Zebrafinch-somae_filled-dsp_8.h5"
-somae_refined_output_fname = input_folder+"Zebrafinch-somae_filled_refined-dsp_8.h5"
-output_folder_blocks = input_folder+"somae_dsp8_{}x{}x{}/".format(block_size[2],block_size[1],block_size[0])
-
-somae_binary_mask = ReadH5File(somae_input_fname,[1])
-seg = ReadH5File(seg_input_fname,[1])
-
-if seg.shape[0]!=somae_binary_mask.shape[0]:
-    raise ValueError("Unknown Error")
-
-seg = seg[:,:network_size,:network_size]
-
-somae_raw = seg.copy()
-somae_raw[somae_binary_mask==0]=0
-
-cc_labels, n_comp = computeConnectedComp26(somae_raw)
-
-print("Components found: " + str(n_comp))
-items_of_component, label_to_cclabel = evaluateLabels(cc_labels, somae_raw, n_comp)
-
-keep_labels = set()
-
-for entry in label_to_cclabel.keys():
-    most_points = -1
-    largest_comp = -1
-    for comp in label_to_cclabel[entry]:
-        if items_of_component[comp]>most_points:
-            largest_comp = comp
-            most_points = items_of_component[comp]
-
-    keep_labels.add(largest_comp)
-
-somae_refined = update_labels(keep_labels, somae_raw, cc_labels)
-
-WriteH5File(somae_refined,somae_refined_output_fname,"main")
+# seg_input_fname = input_folder+"filled/Zebrafinch-seg_filled-dsp8.h5"
+# somae_input_fname = input_folder+"filled/Zebrafinch-somae_filled-dsp_8.h5"
+# somae_refined_output_fname = input_folder+"filled/Zebrafinch-somae_filled_refined-dsp_8.h5"
+output_folder_blocks = input_folder+"nosomae_dsp8_{}x{}x{}/".format(block_size[2],block_size[1],block_size[0])
+#
+# somae_binary_mask = ReadH5File(somae_input_fname,[1])
+# seg = ReadH5File(seg_input_fname,[1])
+#
+# if seg.shape[0]!=somae_binary_mask.shape[0]:
+#     raise ValueError("Unknown Error")
+#
+# seg = seg[:,:network_size,:network_size]
+#
+# somae_raw = seg.copy()
+# somae_raw[somae_binary_mask==0]=0
+#
+# cc_labels, n_comp = computeConnectedComp26(somae_raw)
+#
+# print("Components found: " + str(n_comp))
+# items_of_component, label_to_cclabel = evaluateLabels(cc_labels, somae_raw, n_comp)
+#
+# keep_labels = set()
+#
+# for entry in label_to_cclabel.keys():
+#     most_points = -1
+#     largest_comp = -1
+#     for comp in label_to_cclabel[entry]:
+#         if items_of_component[comp]>most_points:
+#             largest_comp = comp
+#             most_points = items_of_component[comp]
+#
+#     keep_labels.add(largest_comp)
+#
+# somae_refined = update_labels(keep_labels, somae_raw, cc_labels)
+#
+# WriteH5File(somae_refined,somae_refined_output_fname,"main")
 
 # process somae - write somae points and surface points for every block
 
-somae_refined = ReadH5File(somae_refined_output_fname,[1])
+# somae_refined = ReadH5File(somae_refined_output_fname,[1])
 for bz in range(n_blocks[0]):
     for by in range(n_blocks[1]):
         for bx in range(n_blocks[2]):
 
             labels_out = np.zeros((block_size_dsp[0],block_size_dsp[1],block_size_dsp[2]),dtype=np.uint64)
+            #
+            # somae_block_dsp = somae_refined[bz*block_size_dsp[0]:(bz+1)*block_size_dsp[0],
+            #                                 by*block_size_dsp[1]:(by+1)*block_size_dsp[1],
+            #                                 bx*block_size_dsp[2]:(bx+1)*block_size_dsp[2]]
 
-            somae_block_dsp = somae_refined[bz*block_size_dsp[0]:(bz+1)*block_size_dsp[0],
-                                            by*block_size_dsp[1]:(by+1)*block_size_dsp[1],
-                                            bx*block_size_dsp[2]:(bx+1)*block_size_dsp[2]]
-
-            labels_out[:somae_block_dsp.shape[0],:somae_block_dsp.shape[1],:somae_block_dsp.shape[2]] = somae_block_dsp
+            # labels_out[:somae_block_dsp.shape[0],:somae_block_dsp.shape[1],:somae_block_dsp.shape[2]] = somae_block_dsp
 
             print(labels_out.shape)
 
-            filename_dsp = output_folder+'Zebrafinch-somae_filled_refined_dsp{}-{:04d}z-{:04d}y-{:04d}x.h5'.format(dsp,bz,by,bx)
+            filename_dsp = output_folder_blocks+'Zebrafinch-somae_filled_refined_dsp{}-{:04d}z-{:04d}y-{:04d}x.h5'.format(dsp,bz,by,bx)
             WriteH5File(labels_out,filename_dsp,   "main")

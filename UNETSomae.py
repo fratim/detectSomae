@@ -6,6 +6,7 @@ import numpy as np
 import csv
 from datetime import datetime
 import os
+import time
 
 # os.environ['AUTOGRAPH_VERBOSITY'] = 0
 tf.get_logger().setLevel('ERROR')
@@ -15,10 +16,10 @@ depth = 4
 learning_rate = 0.001
 epochs = 500
 
-# batch_size = 4
-batch_size = 8
-# network_size = 832
-network_size = 704
+batch_size = 4
+# batch_size = 8
+network_size = 832
+# network_size = 704
 
 # specify size of validation dataset
 val_data_size = 384
@@ -214,7 +215,7 @@ def model(L11, weights) :
 def initializeModel(restore, ckpt_restore):
     # filters for the UNEt layers:
     # filters = [depth*2+1,64,128,256,512,1024,1]   #original UNET
-    filters = [depth*2+1,16,32,54,128,256,1]        # modified, lighter UNET
+    filters = [depth*2+1,  16,32, 64, 128,256,1]        # modified, lighter UNET
 
     #shapes of the weight tensors
     shapes = [
@@ -388,11 +389,6 @@ def trainOnEpochs(train_seg, train_mask, valid_seg, valid_mask, weights, w_loss,
                 with valid_summary_writer.as_default():
                     tf.summary.image("valid-epoch"+str(epoch)+"j-"+str(j), tf.concat([tf.expand_dims(image[:,:,:,depth],3), mask_gt, mask_pred],axis=1), step=epoch, max_outputs=5)
 
-        # if valid_loss.result().numpy()<valid_loss_best:
-        #     valid_loss_best = valid_loss.result().numpy()
-        #     weights.saveWeights()
-        #     print("Weights saved ------------------")
-
         print("Train loss: " + str(train_loss.result().numpy()))
         print("Train accu: " + str(train_acc.result().numpy()))
         print("Valid loss: " + str(valid_loss.result().numpy()))
@@ -474,32 +470,68 @@ def PredictOnZebrafinch(ckpt_restore):
     dataIO.WriteH5File(somae_mask_out, "/home/frtim/Documents/Code/SomaeDetection/Zebrafinch/Zebrafinch-somae_filled_new-dsp_8.h5","main")
 
 def PredictOnMouse(ckpt_restore):
+
+    time_predict = 0
+    n_predictions = 0
+
     # Zebrafinch
     seg_filepath =      "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/seg_Mouse_762x832x832.h5"
     seg_data = dataIO.ReadH5File(seg_filepath, [1])
     print("Seg Data Input Shape: " + str(seg_data))
 
-    seg_data = seg_data[:,:network_size,:network_size]
+    seg_data = seg_data[val_data_size:,:network_size,:network_size]
 
-    valid_seg = prepareDataPrediction(seg_data)
-
-    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss = initializeModel(restore=True, ckpt_restore=ckpt_restore)
-
-    somae_mask_out = np.zeros((valid_seg.shape[0],valid_seg.shape[1],valid_seg.shape[2]), dtype=np.float64)
+    somae_mask_out = np.zeros((seg_data.shape[0],seg_data.shape[1],seg_data.shape[2]), dtype=np.float64)
     print("Output shape: " + str(somae_mask_out.shape))
 
-    for j in np.arange(0,valid_seg.shape[0],batch_size):
+    seg_data_prep = prepareDataPrediction(seg_data)
 
-        image = valid_seg[j:j+batch_size,:,:,:]
-        image = tf.convert_to_tensor( image , dtype=tf.float32 )
-        mask_pred = tf.squeeze(model(image, weights))
+    weights, w_loss, optimizer, train_acc, valid_acc, train_loss, valid_loss, TP, FP, TN, FN  = initializeModel(restore=True, ckpt_restore=ckpt_restore)
 
-        somae_mask_out[j:j+batch_size,:,:]=mask_pred.numpy()
+    unique_ids = np.unique(seg_data)
 
-        print(str(j).zfill(4))
+    print(unique_ids)
 
-    somae_mask_out[somae_mask_out<=0.5]=0
-    somae_mask_out[somae_mask_out>0.5]=1
+    time_predict_total_start = time.time()
+
+    # for ID in unique_ids:
+    for ID in unique_ids:
+
+        print("Processind ID " + str(ID))
+
+        seg_data_filtered = seg_data_prep.copy()
+        seg_data_filtered[seg_data_filtered!=ID]=0
+
+        # mask the data to be binary
+        seg_data_filtered[seg_data_filtered>0]=1
+
+        for j in np.arange(0,seg_data_filtered.shape[0],batch_size):
+
+            image = seg_data_filtered[j:j+batch_size,:,:,:]
+
+            image = tf.convert_to_tensor( image , dtype=tf.float32 )
+
+            if np.max(image[:,:,:,depth])!=0:
+
+                time_before = time.time()
+
+                mask_pred = tf.squeeze(model(image, weights)).numpy()
+
+                time_predict += time.time()-time_before
+                n_predictions += 1
+
+                mask_pred[mask_pred<=0.5]=0
+                mask_pred[mask_pred>0.5]=1
+
+                mask_pred = image[:,:,:,depth]*mask_pred
+                somae_mask_out[j:j+batch_size,:,:] = somae_mask_out[j:j+batch_size,:,:]+mask_pred[:,:,:]
+
+        print("time predict: " + str(time_predict))
+        print("{n_predictions: " + str(n_predictions))
+
+        del seg_data_filtered
+
+    print("Time predict toal: " + str(time.time()-time_predict_total_start))
 
     somae_mask_out = somae_mask_out.astype(np.uint64)
 
@@ -534,12 +566,17 @@ def main():
     tensorflow_shutup()
 
     # restore from checkpoint
-    ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200108-153805/-130'
+    # ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200108-153805/-130'
+    # ckpt_restore = '/home/frtim/Documents/Code/SomaeDetection/ckpt_20200124-145317/-40'
 
-    # TrainOnMouse(restore=False, ckpt_restore='None')
-    PredictOnZebrafinch(ckpt_restore)
+    start_time = time.time()
+
+    TrainOnMouse(restore=False, ckpt_restore='None')
+    # PredictOnZebrafinch(ckpt_restore)
     # PredictOnMouse(ckpt_restore)
 
+    total_time = time.time()-start_time
+    print("total_time is:" + str(total_time))
 
 if True == 1:
     main()
