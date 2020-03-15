@@ -55,23 +55,23 @@ def update_labels(keep_labels, labels_in, cc_labels):
 
     return labels_in
 
-dsp = 8
+dsp = 4
 block_size =        [1024,1024,1024]
 block_size_dsp =    [block_size[0]//dsp,block_size[1]//dsp,block_size[2]//dsp]
-n_blocks =          [6,6,6]
+n_blocks =          [4,4,4]
 
 # # network size used for prediction (x-y), can be smaller due to padding
 # network_size = 704
 #
 input_folder = "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/"
-seg_input_fname = input_folder+"seg_Mouse_762x832x832.h5"
-somae_input_fname = input_folder+"somae_pred_Mouse.h5"
-somae_refined_output_fname = input_folder+"JWR-somae_filled_refined-dsp_8.h5"
-output_folder_blocks = input_folder+"nosomae_dsp8_{}x{}x{}/".format(block_size[2],block_size[1],block_size[0])
-#
+seg_input_fname = input_folder+"seg_JWR_762x832x832.h5"
+somae_input_fname = input_folder+"somae_JWR_773x832x832.h5"
+somae_refined_output_fname = input_folder+"somae_JWR_refined_773x832x832.h5"
+output_folder_blocks = input_folder+"somae_dsp4_{}x{}x{}/".format(block_size[2],block_size[1],block_size[0])
+
 somae_binary_mask = ReadH5File(somae_input_fname,[1])
 seg = ReadH5File(seg_input_fname,[1])
-seg = seg[384:,:,:]
+# seg = seg[384:,:,:]
 
 if seg.shape[0]!=somae_binary_mask.shape[0]:
     print(somae_binary_mask.shape)
@@ -104,20 +104,20 @@ WriteH5File(somae_refined,somae_refined_output_fname,"main")
 
 # process somae - write somae points and surface points for every block
 
-# somae_refined = ReadH5File(somae_refined_output_fname,[1])
-# for bz in range(n_blocks[0]):
-#     for by in range(n_blocks[1]):
-#         for bx in range(n_blocks[2]):
-#
-#             labels_out = np.zeros((block_size_dsp[0],block_size_dsp[1],block_size_dsp[2]),dtype=np.uint64)
-#
-#             # somae_block_dsp = somae_refined[bz*block_size_dsp[0]:(bz+1)*block_size_dsp[0],
-#             #                                 by*block_size_dsp[1]:(by+1)*block_size_dsp[1],
-#             #                                 bx*block_size_dsp[2]:(bx+1)*block_size_dsp[2]]
-#             #
-#             # labels_out[:somae_block_dsp.shape[0],:somae_block_dsp.shape[1],:somae_block_dsp.shape[2]] = somae_block_dsp
-#
-#             print(labels_out.shape)
-#
-#             filename_dsp = output_folder_blocks+'Zebrafinch-somae_filled_refined_dsp{}-{:04d}z-{:04d}y-{:04d}x.h5'.format(dsp,bz,by,bx)
-#             WriteH5File(labels_out,filename_dsp,   "main")
+somae_refined = ReadH5File(somae_refined_output_fname,[1])
+for bz in range(n_blocks[0]):
+    for by in range(n_blocks[1]):
+        for bx in range(n_blocks[2]):
+
+            # labels_out = np.zeros((block_size_dsp[0],block_size_dsp[1],block_size_dsp[2]),dtype=np.uint64)
+
+            somae_block_dsp = somae_refined[bz*block_size_dsp[0]:(bz+1)*block_size_dsp[0],
+                                            by*block_size_dsp[1]:(by+1)*block_size_dsp[1],
+                                            bx*block_size_dsp[2]:(bx+1)*block_size_dsp[2]]
+
+            labels_out[:somae_block_dsp.shape[0],:somae_block_dsp.shape[1],:somae_block_dsp.shape[2]] = somae_block_dsp
+
+            print(labels_out.shape)
+
+            filename_dsp = output_folder_blocks+'JWR-somae_filled_refined_dsp{}-{:04d}z-{:04d}y-{:04d}x.h5'.format(dsp,bz,by,bx)
+            WriteH5File(labels_out,filename_dsp,   "main")
