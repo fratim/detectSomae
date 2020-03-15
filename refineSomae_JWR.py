@@ -109,7 +109,7 @@ for bz in range(n_blocks[0]):
     for by in range(n_blocks[1]):
         for bx in range(n_blocks[2]):
 
-            # labels_out = np.zeros((block_size_dsp[0],block_size_dsp[1],block_size_dsp[2]),dtype=np.uint64)
+            labels_out = np.zeros((block_size_dsp[0],block_size_dsp[1],block_size_dsp[2]),dtype=np.uint64)
 
             somae_block_dsp = somae_refined[bz*block_size_dsp[0]:(bz+1)*block_size_dsp[0],
                                             by*block_size_dsp[1]:(by+1)*block_size_dsp[1],
