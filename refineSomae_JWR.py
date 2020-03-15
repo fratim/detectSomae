@@ -64,7 +64,7 @@ n_blocks =          [4,4,4]
 # network_size = 704
 #
 input_folder = "/home/frtim/Documents/Code/SomaeDetection/Mouse/gt_data/"
-seg_input_fname = input_folder+"seg_JWR_762x832x832.h5"
+seg_input_fname = input_folder+"seg_JWR_773x832x832.h5"
 somae_input_fname = input_folder+"somae_JWR_773x832x832.h5"
 somae_refined_output_fname = input_folder+"somae_JWR_refined_773x832x832.h5"
 output_folder_blocks = input_folder+"somae_dsp4_{}x{}x{}/".format(block_size[2],block_size[1],block_size[0])
