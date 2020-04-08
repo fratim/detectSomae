@@ -2,11 +2,10 @@ import neuroglancer
 import numpy as np
 import sys
 import h5py
-import sys
 
 
 ip='localhost' # or public IP of the machine for sharable display
-port=98092 # change to an unused port number
+port=0 # change to an unused port number
 neuroglancer.set_server_bind_address(bind_address=ip,bind_port=port)
 viewer=neuroglancer.Viewer()
 
@@ -63,7 +62,10 @@ def loadViz(box, path, caption, res, printIDs, idRes, printCoods):
             name=caption,
             layer=neuroglancer.LocalVolume(
                 data=gt,
-                voxel_size=res,
+                dimensions=neuroglancer.CoordinateSpace(
+                    names=['x', 'y', 'z'],
+                    units=['nm','nm','nm'],
+                    scales=res),
                 volume_type='segmentation'
             ))
 
@@ -84,8 +86,9 @@ compare= "Zebrafinch-somae_filled_refined-dsp_8"
 # box = [0,1152,0,1000,0,1000]
 box = [1]
 
-fn_org =                 data_path  + sample_name + ".h5"
-fn_compare =             data_path  + compare + ".h5"
+fn_org =                   "somae_concat.h5"
+# fn_org =                 data_path  + sample_name + ".h5"
+# fn_compare =             data_path  + compare + ".h5"
 # fn_compare2 =             data_path  + compare2 + ".h5"
 
 
@@ -102,7 +105,7 @@ print("-----------------------------------------------------------------")
 print(viewer)
 
 loadViz(box=box, path=fn_org,                   caption="segmentation",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
-loadViz(box=box, path=fn_compare,               caption="soma",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
+# loadViz(box=box, path=fn_compare,               caption="soma",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
 # loadViz(box=box, path=fn_compare2,               caption="somae_over",                    res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
 # loadViz(box=box, path=fn_filled_gt,           caption="filled_gt",            res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
 # loadViz(box=box, path=fn_wholes_gt,             caption="wholes_gt",            res=res, printIDs = True, idRes=idRes,      printCoods=False)
