@@ -86,7 +86,9 @@ compare= "Zebrafinch-somae_filled_refined-dsp_8"
 # box = [0,1152,0,1000,0,1000]
 box = [1]
 
-fn_org =                   "somae_concat.h5"
+fn_concat =                   "somae_concat.h5"
+fn_filled =                   "somae_filled.h5"
+fn_diff =                   "somae_diff.h5"
 # fn_org =                 data_path  + sample_name + ".h5"
 # fn_compare =             data_path  + compare + ".h5"
 # fn_compare2 =             data_path  + compare2 + ".h5"
@@ -104,7 +106,9 @@ print("----------------------------HOST:---------------------------------")
 print("-----------------------------------------------------------------")
 print(viewer)
 
-loadViz(box=box, path=fn_org,                   caption="segmentation",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
+loadViz(box=box, path=fn_concat,                   caption="concat",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
+loadViz(box=box, path=fn_filled,                   caption="filled",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
+loadViz(box=box, path=fn_diff,                   caption="diff",             res=res, printIDs = True, idRes=idRes,    printCoods=False)
 # loadViz(box=box, path=fn_compare,               caption="soma",                    res=res, printIDs = True, idRes=idRes,    printCoods=False)
 # loadViz(box=box, path=fn_compare2,               caption="somae_over",                    res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
 # loadViz(box=box, path=fn_filled_gt,           caption="filled_gt",            res=res, printIDs = True, idRes=4*idRes,    printCoods=False)
